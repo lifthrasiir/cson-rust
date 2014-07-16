@@ -1,0 +1,9 @@
+[package]
+
+name = "cson"
+version = "0.1.0"
+authors = ["Kang Seonghoon <public+rust@mearie.org>"]
+
+[[lib]]
+
+name = "cson"
