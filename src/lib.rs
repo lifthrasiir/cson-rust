@@ -23,6 +23,8 @@
 #![comment = "CSON Reference Implementation"]
 #![license = "Public Domain"]
 
+#![feature(macro_rules)]
+
 pub mod repr;
 pub mod reader;
 //mod writer;

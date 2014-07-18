@@ -3,19 +3,14 @@
 
 use std::{char, str};
 use std::str::MaybeOwned;
-use std::io::{IoError, IoResult, EndOfFile};
-#[cfg(test)] use std::io::BufReader;
+use std::io::{BufReader, IoError, IoResult, EndOfFile};
 use std::collections::TreeMap;
 use super::repr;
 
-pub struct Reader<'a> {
-    buf: &'a mut Buffer,
-}
-
 #[deriving(PartialEq, Show)]
 pub struct ReaderError {
-    cause: MaybeOwned<'static>,
-    ioerr: Option<IoError>,
+    pub cause: MaybeOwned<'static>,
+    pub ioerr: Option<IoError>,
 }
 
 pub type ReaderResult<T> = Result<T, ReaderError>;
@@ -158,18 +153,34 @@ fn reader_err<T, Cause:IntoMaybeOwned<'static>>(cause: Cause) -> ReaderResult<T>
     Err(ReaderError { cause: cause.into_maybe_owned(), ioerr: None })
 }
 
-impl<'a> Reader<'a> {
-    pub fn new(buf: &'a mut Buffer) -> Reader<'a> {
-        Reader { buf: buf }
+pub struct Reader<R> {
+    buf: R,
+}
+
+impl<'a> Reader<BufReader<'a>> {
+    pub fn from_str<'a>(buf: &'a [u8]) -> Reader<BufReader<'a>> {
+        Reader { buf: BufReader::new(buf) }
+    }
+}
+
+impl<R:Buffer> Reader<R> {
+    pub fn new(reader: R) -> Reader<R> {
+        Reader { buf: reader }
     }
 
-    pub fn parse(&mut self) -> ReaderResult<repr::Atom<'static>> {
+    pub fn parse_document(mut self) -> ReaderResult<repr::Atom<'static>> {
         let ret = try!(self.document());
         try!(self.eof());
         Ok(ret)
     }
 
-    pub fn eof(&mut self) -> ReaderResult<()> {
+    pub fn parse_value(mut self) -> ReaderResult<repr::Atom<'static>> {
+        let ret = try!(self.value());
+        try!(self.eof());
+        Ok(ret)
+    }
+
+    fn eof(&mut self) -> ReaderResult<()> {
         loop {
             match try!(into_reader_result(self.buf.fill_buf())) {
                 Some(buf) => {
@@ -184,7 +195,7 @@ impl<'a> Reader<'a> {
         }
     }
 
-    pub fn peek(&mut self) -> ReaderResult<Option<u8>> {
+    fn peek(&mut self) -> ReaderResult<Option<u8>> {
         loop {
             match try!(into_reader_result(self.buf.fill_buf())) {
                 Some(buf) => {
@@ -235,7 +246,7 @@ impl<'a> Reader<'a> {
     ///           / array
     ///           / ws object-items
     /// ~~~~
-    pub fn document(&mut self) -> ReaderResult<repr::Atom<'static>> {
+    fn document(&mut self) -> ReaderResult<repr::Atom<'static>> {
         try!(self.skip_ws());
         match try!(self.peek()) {
             Some(b'{') => self.object_no_peek().map(repr::Object),
@@ -252,7 +263,7 @@ impl<'a> Reader<'a> {
     ///                 / newline ws
     /// newline = *(%x20 / %x09) newline-char
     /// ~~~~
-    pub fn skip_value_separator_opt(&mut self) -> ReaderResult<Option<()>> {
+    fn skip_value_separator_opt(&mut self) -> ReaderResult<Option<()>> {
         let newline = try!(self.skip_ws());
         if try!(self.peek()) == Some(b',') {
             self.buf.consume(1);
@@ -280,7 +291,7 @@ impl<'a> Reader<'a> {
     /// ~~~~
     ///
     /// Returns true when `ws` contains at least one `newline`.
-    pub fn skip_ws(&mut self) -> ReaderResult<bool> {
+    fn skip_ws(&mut self) -> ReaderResult<bool> {
         let mut has_newline = false;
         loop {
             let mut comment_chars = false;
@@ -310,7 +321,7 @@ impl<'a> Reader<'a> {
     /// ~~~~ {.text}
     /// non-newline-char = %x00-09 / %x0B-0C / %x0E-10FFFF
     /// ~~~~
-    pub fn skip_non_newline_chars(&mut self) -> ReaderResult<()> {
+    fn skip_non_newline_chars(&mut self) -> ReaderResult<()> {
         try!(self.loop_with_buffer(|buf| {
             for (i, &v) in buf.iter().enumerate() {
                 if v == 0x0a || v == 0x0d { return Some(i); }
@@ -324,7 +335,7 @@ impl<'a> Reader<'a> {
     ///
     /// It may return an invalid UTF-8 sequence.
     /// The caller is responsible for checking for the valid UTF-8 whenever appropriate.
-    pub fn non_newline_chars(&mut self) -> ReaderResult<Vec<u8>> {
+    fn non_newline_chars(&mut self) -> ReaderResult<Vec<u8>> {
         let mut bytes = Vec::new();
         try!(self.loop_with_buffer(|buf| {
             let mut ret = None;
@@ -341,7 +352,7 @@ impl<'a> Reader<'a> {
     }
 
     /// Parses `value`.
-    pub fn value(&mut self) -> ReaderResult<repr::Atom<'static>> {
+    fn value(&mut self) -> ReaderResult<repr::Atom<'static>> {
         match try!(self.value_opt()) {
             Some(value) => Ok(value),
             _ => reader_err("expected value"),
@@ -358,7 +369,7 @@ impl<'a> Reader<'a> {
     /// null  = %x6e.75.6c.6c           ; null
     /// true  = %x74.72.75.65           ; true
     /// ~~~~
-    pub fn value_opt(&mut self) -> ReaderResult<Option<repr::Atom<'static>>> {
+    fn value_opt(&mut self) -> ReaderResult<Option<repr::Atom<'static>>> {
         match try!(self.peek()) {
             Some(b'f') => match try!(self.fixed_token_opt(b"false")) {
                 Some(()) => Ok(Some(repr::False)),
@@ -391,7 +402,7 @@ impl<'a> Reader<'a> {
     }
 
     /// Parses `object`.
-    pub fn object(&mut self) -> ReaderResult<repr::Object<'static>> {
+    fn object(&mut self) -> ReaderResult<repr::Object<'static>> {
         try!(self.skip_ws());
         match try!(self.peek()) {
             Some(b'{') => self.object_no_peek(),
@@ -407,7 +418,7 @@ impl<'a> Reader<'a> {
     /// begin-object    = ws %x7B ws    ; { left curly bracket
     /// end-object      = ws %x7D ws    ; } right curly bracket
     /// ~~~~
-    pub fn object_no_peek(&mut self) -> ReaderResult<repr::Object<'static>> {
+    fn object_no_peek(&mut self) -> ReaderResult<repr::Object<'static>> {
         assert_eq!(self.peek(), Ok(Some(b'{')));
 
         self.buf.consume(1);
@@ -429,7 +440,7 @@ impl<'a> Reader<'a> {
     ///                 / newline ws
     /// newline = *(%x20 / %x09) newline-char
     /// ~~~~
-    pub fn object_items_opt(&mut self) -> ReaderResult<repr::Object<'static>> {
+    fn object_items_opt(&mut self) -> ReaderResult<repr::Object<'static>> {
         let mut items = TreeMap::new();
         let (firstkey, firstvalue) = match try!(self.member_opt()) {
             Some(member) => member,
@@ -452,8 +463,8 @@ impl<'a> Reader<'a> {
     /// ~~~~ {.text}
     /// member = name name-separator value
     /// ~~~~
-    pub fn member_opt(&mut self) -> ReaderResult<Option<(repr::Key<'static>,
-                                                         repr::Atom<'static>)>> {
+    fn member_opt(&mut self) -> ReaderResult<Option<(repr::Key<'static>,
+                                                     repr::Atom<'static>)>> {
         let name = match try!(self.name_opt()) {
             Some(name) => name,
             None => { return Ok(None); }
@@ -480,7 +491,7 @@ impl<'a> Reader<'a> {
     ///          / %x3001-D7FF / %xF900-FDCF / %xFDF0-FFFD / %x10000-EFFFF
     /// id-end = id-start / %x2E / %x30-39 / %xB7 / %x0300-036F / %x203F-2040
     /// ~~~~
-    pub fn name_opt(&mut self) -> ReaderResult<Option<MaybeOwned<'static>>> {
+    fn name_opt(&mut self) -> ReaderResult<Option<MaybeOwned<'static>>> {
         match try!(self.peek()) {
             Some(quote @ b'"') | Some(quote @ b'\'') => {
                 self.buf.consume(1);
@@ -499,16 +510,17 @@ impl<'a> Reader<'a> {
     /// begin-array     = ws %x5B ws    ; [ left square bracket
     /// end-array       = ws %x5D ws    ; ] right square bracket
     /// ~~~~
-    pub fn array_no_peek(&mut self) -> ReaderResult<repr::List<'static>> {
+    fn array_no_peek(&mut self) -> ReaderResult<repr::List<'static>> {
         assert_eq!(self.peek(), Ok(Some(b'[')));
 
         self.buf.consume(1);
         try!(self.skip_ws());
         let elements = try!(self.array_items_opt());
-        match try!(self.peek()) {
-            Some(b']') => Ok(elements),
-            _ => reader_err("expected `]`"),
+        if try!(self.peek()) != Some(b']') {
+            return reader_err("expected `]`");
         }
+        self.buf.consume(1);
+        Ok(elements)
     }
 
     /// Parses `[ array-items ]` where:
@@ -516,7 +528,7 @@ impl<'a> Reader<'a> {
     /// ~~~~ {.text}
     /// array-items = value *( value-separator value ) [ value-separator ]
     /// ~~~~
-    pub fn array_items_opt(&mut self) -> ReaderResult<repr::List<'static>> {
+    fn array_items_opt(&mut self) -> ReaderResult<repr::List<'static>> {
         let mut elements = Vec::new();
         let first = match try!(self.value_opt()) {
             Some(first) => first,
@@ -535,7 +547,7 @@ impl<'a> Reader<'a> {
     }
 
     /// Parses and pushes `*DIGITS` into `bytes`.
-    pub fn digits_opt(&mut self, bytes: &mut Vec<u8>) -> ReaderResult<()> {
+    fn digits_opt(&mut self, bytes: &mut Vec<u8>) -> ReaderResult<()> {
         try!(self.loop_with_buffer(|buf| {
             let mut ret = None;
             for (i, &v) in buf.iter().enumerate() {
@@ -564,7 +576,7 @@ impl<'a> Reader<'a> {
     /// plus = %x2B                     ; +
     /// zero = %x30                     ; 0
     /// ~~~~
-    pub fn number_no_peek(&mut self, initial: u8) -> ReaderResult<repr::Atom<'static>> {
+    fn number_no_peek(&mut self, initial: u8) -> ReaderResult<repr::Atom<'static>> {
         assert_eq!(self.peek(), Ok(Some(initial)));
 
         self.buf.consume(1);
@@ -639,7 +651,7 @@ impl<'a> Reader<'a> {
     /// string = quotation-mark *dquoted-char quotation-mark
     ///        / apostrophe-mark *squoted-char apostrophe-mark
     /// ~~~~
-    pub fn string(&mut self) -> ReaderResult<MaybeOwned<'static>> {
+    fn string(&mut self) -> ReaderResult<MaybeOwned<'static>> {
         match try!(self.peek()) {
             Some(quote @ b'"') | Some(quote @ b'\'') => {
                 self.buf.consume(1);
@@ -660,7 +672,7 @@ impl<'a> Reader<'a> {
     /// dquoted-unescaped = %x20-21 / %x23-5B / %x5D-10FFFF
     /// squoted-unescaped = %x20-26 / %x28-5B / %x5D-10FFFF
     /// ~~~~
-    pub fn quoted_chars_then_quote(&mut self, quote: u8) -> ReaderResult<MaybeOwned<'static>> {
+    fn quoted_chars_then_quote(&mut self, quote: u8) -> ReaderResult<MaybeOwned<'static>> {
         let mut bytes = Vec::new();
         loop {
             let mut escaped_follows = false;
@@ -745,7 +757,7 @@ impl<'a> Reader<'a> {
     ///
     /// Returns an `u16` instead of a `char` since it may return an incomplete surrogate.
     /// The caller is expected to deal with such cases.
-    pub fn escaped_minus_escape(&mut self) -> ReaderResult<u16> {
+    fn escaped_minus_escape(&mut self) -> ReaderResult<u16> {
         match try!(into_reader_result(self.buf.read_byte())) {
             Some(b'\'') => Ok(0x27),
             Some(b'"') => Ok(0x22),
@@ -784,7 +796,7 @@ impl<'a> Reader<'a> {
     /// verbatim-fragment = pipe *verbatim-char
     /// pipe = %x7C                     ; |
     /// ~~~~
-    pub fn verbatim_string_no_peek(&mut self) -> ReaderResult<Vec<MaybeOwned<'static>>> {
+    fn verbatim_string_no_peek(&mut self) -> ReaderResult<Vec<MaybeOwned<'static>>> {
         assert_eq!(self.peek(), Ok(Some(b'|')));
 
         let mut frags = Vec::new();
@@ -801,31 +813,6 @@ impl<'a> Reader<'a> {
         Ok(frags)
     }
 
-    /// Parses `*verbatim-char` where:
-    ///
-    /// ~~~~ {.text}
-    /// verbatim-char = %x09 / %x20-10FFFF
-    /// ~~~~
-    pub fn verbatim_chars(&mut self) -> ReaderResult<MaybeOwned<'static>> {
-        let mut bytes = Vec::new();
-        try!(self.loop_with_buffer(|buf| {
-            let mut ret = None;
-            for (i, &v) in buf.iter().enumerate() {
-                if v < 0x20 && v != 0x09 {
-                    ret = Some(i);
-                    break;
-                }
-            }
-            bytes.extend(buf.slice_to(ret.unwrap_or(buf.len())).iter().map(|&b| b));
-            ret
-        }));
-
-        match String::from_utf8(bytes) {
-            Ok(s) => Ok(s.into_maybe_owned()),
-            Err(_) => reader_err("invalid UTF-8 sequence in a verbatim string"),
-        }
-    }
-
     /// Given a known lookahead, parses `bare-string` where:
     ///
     /// ~~~~ {.text}
@@ -837,7 +824,7 @@ impl<'a> Reader<'a> {
     ///          / %x3001-D7FF / %xF900-FDCF / %xFDF0-FFFD / %x10000-EFFFF
     /// id-end = id-start / %x2E / %x30-39 / %xB7 / %x0300-036F / %x203F-2040
     /// ~~~~
-    pub fn bare_string_no_peek(&mut self) -> ReaderResult<MaybeOwned<'static>> {
+    fn bare_string_no_peek(&mut self) -> ReaderResult<MaybeOwned<'static>> {
         assert!(self.peek().ok().and_then(|c| c).map_or(false, is_id_start_byte));
 
         let mut s = String::new();
@@ -859,37 +846,48 @@ impl<'a> Reader<'a> {
 }
 
 #[cfg(test)]
-fn parse_str(s: &str) -> ReaderResult<repr::Atom<'static>> {
-    let mut buf = BufReader::new(s.as_bytes());
-    let mut rdr = Reader::new(&mut buf);
-    rdr.value()
-}
+mod tests {
+    use super::Reader;
+    use repr;
+    use repr::{Null, True, False, Number};
+    use Int = repr::IntegralNumber;
 
-#[test]
-fn test_simple() {
-    assert_eq!(parse_str("null"), Ok(repr::Null));
-    assert_eq!(parse_str("true"), Ok(repr::True));
-    assert_eq!(parse_str("false"), Ok(repr::False));
-    assert_eq!(parse_str("42"), Ok(repr::IntegralNumber(42)));
-    assert_eq!(parse_str("42.0"), Ok(repr::Number(42.0)));
-    assert_eq!(parse_str("[1, 2, 3]"),
-               Ok(repr::List(vec![repr::IntegralNumber(1),
-                                  repr::IntegralNumber(2),
-                                  repr::IntegralNumber(3)])));
-    assert_eq!(parse_str("[1\n 2\n 3]"),
-               Ok(repr::List(vec![repr::IntegralNumber(1),
-                                  repr::IntegralNumber(2),
-                                  repr::IntegralNumber(3)])));
-    assert_eq!(parse_str("\"abc\""), Ok(repr::OwnedString("abc".to_string())));
-    assert_eq!(parse_str("'abc'"), Ok(repr::OwnedString("abc".to_string())));
-    assert_eq!(parse_str("|abc\n|def"), Ok(repr::OwnedString("abc\ndef".to_string())));
-    assert_eq!(parse_str("{\"f\": 1, 'g': 2}"),
-               Ok(repr::Object(vec![("f".into_maybe_owned(), repr::IntegralNumber(1)),
-                                    ("g".into_maybe_owned(), repr::IntegralNumber(2))]
-                               .move_iter().collect())));
-    assert_eq!(parse_str("{f=1\n g=2}"),
-               Ok(repr::Object(vec![("f".into_maybe_owned(), repr::IntegralNumber(1)),
-                                    ("g".into_maybe_owned(), repr::IntegralNumber(2))]
-                               .move_iter().collect())));
+    macro_rules! valid(
+        ($buf:expr, $repr:expr) => ({
+            let parsed = Reader::from_str($buf.as_bytes()).parse_value();
+            let expected = Ok($repr);
+            assert_eq!(parsed, expected);
+        })
+    )
+
+    macro_rules! invalid(
+        ($buf:expr) => ({
+            let parsed = Reader::from_str($buf.as_bytes()).parse_value();
+            assert!(parsed.is_err());
+        })
+    )
+
+    fn String<'a>(s: &'a str) -> repr::Atom<'a> { repr::OwnedString(s.to_string()) }
+    macro_rules! list([$($e:expr),*] => (repr::List(vec![$($e),*])))
+    macro_rules! object([$($k:expr => $v:expr),*] =>
+                        (repr::Object(vec![$(($k.into_maybe_owned(),
+                                              $v)),*].move_iter().collect())))
+
+    #[test]
+    fn test_simple() {
+        valid!("null", Null);
+        valid!("true", True);
+        valid!("false", False);
+        valid!("42", Int(42));
+        valid!("42.0", Number(42.0));
+        valid!("[1, 2, 3]", list![Int(1), Int(2), Int(3)]);
+        valid!("[1\n 2\n 3]", list![Int(1), Int(2), Int(3)]);
+        valid!("\"abc\"", String("abc"));
+        valid!("'abc'", String("abc"));
+        valid!("|abc\n|def", String("abc\ndef"));
+        valid!("[|a\n\n |b\n\n |c\n,|d\n]", list![String("a\nb\nc"), String("d")]);
+        valid!("{\"f\": 1, 'g': 2}", object!["f" => Int(1), "g" => Int(2)]);
+        valid!("{f=1\n g=2}", object!["f" => Int(1), "g" => Int(2)]);
+    }
 }
 
