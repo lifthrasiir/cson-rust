@@ -1,16 +1,25 @@
 // This is a part of CSON-rust.
 // Written by Kang Seonghoon. See README.md for details.
 
-use std::{char, str};
+use std::{char, str, fmt};
 use std::str::MaybeOwned;
-use std::io::{BufReader, IoError, IoResult, EndOfFile};
+use std::io::{IoError, IoResult, EndOfFile};
 use std::collections::TreeMap;
 use super::repr;
 
-#[deriving(PartialEq, Show)]
+#[deriving(PartialEq)]
 pub struct ReaderError {
     pub cause: MaybeOwned<'static>,
     pub ioerr: Option<IoError>,
+}
+
+impl fmt::Show for ReaderError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.ioerr {
+            Some(ref ioerr) => write!(f, "{} ({})", self.cause, *ioerr),
+            None => write!(f, "{}", self.cause),
+        }
+    }
 }
 
 pub type ReaderResult<T> = Result<T, ReaderError>;
@@ -155,19 +164,13 @@ fn reader_err<T, Cause:IntoMaybeOwned<'static>>(cause: Cause) -> ReaderResult<T>
 
 struct Newline;
 
-pub struct Reader<R> {
-    buf: R,
+pub struct Reader<'a> {
+    buf: &'a mut Buffer,
 }
 
-impl<'a> Reader<BufReader<'a>> {
-    pub fn from_str<'a>(buf: &'a [u8]) -> Reader<BufReader<'a>> {
-        Reader { buf: BufReader::new(buf) }
-    }
-}
-
-impl<R:Buffer> Reader<R> {
-    pub fn new(reader: R) -> Reader<R> {
-        Reader { buf: reader }
+impl<'a> Reader<'a> {
+    pub fn new(buf: &'a mut Buffer) -> Reader<'a> {
+        Reader { buf: buf }
     }
 
     pub fn parse_document(mut self) -> ReaderResult<repr::Atom<'static>> {
@@ -829,13 +832,14 @@ impl<R:Buffer> Reader<R> {
 #[cfg(test)]
 mod tests {
     use super::Reader;
+    use std::io::BufReader;
     use repr;
     use repr::{Null, True, False, Number};
     use Int = repr::IntegralNumber;
 
     macro_rules! valid(
         ($buf:expr, $repr:expr) => ({
-            let parsed = Reader::from_str($buf.as_bytes()).parse_value();
+            let parsed = Reader::new(&mut BufReader::new($buf.as_bytes())).parse_value();
             let expected = Ok($repr);
             assert_eq!(parsed, expected);
         })
@@ -843,7 +847,7 @@ mod tests {
 
     macro_rules! invalid(
         ($buf:expr) => ({
-            let parsed = Reader::from_str($buf.as_bytes()).parse_value();
+            let parsed = Reader::new(&mut BufReader::new($buf.as_bytes())).parse_value();
             assert!(parsed.is_err());
         })
     )
