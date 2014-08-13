@@ -25,6 +25,8 @@
 
 #![feature(macro_rules)]
 
+extern crate serialize;
+
 pub mod repr;
 pub mod reader;
 //mod writer;

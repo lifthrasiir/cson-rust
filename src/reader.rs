@@ -624,8 +624,8 @@ impl<R:Buffer> Reader<R> {
         if try_integral {
             // try to return as `IntegralNumber` if possible
             match from_str::<i64>(s) {
-                Some(v) => { return Ok(repr::IntegralNumber(v)); }
-                None => {}
+                Some(v) if (-1<<53) < v && v < (1<<53) => { return Ok(repr::IntegralNumber(v)); }
+                _ => {}
             }
         }
         Ok(repr::Number(from_str::<f64>(s).unwrap()))
