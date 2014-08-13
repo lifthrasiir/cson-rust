@@ -153,6 +153,8 @@ fn reader_err<T, Cause:IntoMaybeOwned<'static>>(cause: Cause) -> ReaderResult<T>
     Err(ReaderError { cause: cause.into_maybe_owned(), ioerr: None })
 }
 
+struct Newline;
+
 pub struct Reader<R> {
     buf: R,
 }
@@ -269,7 +271,7 @@ impl<R:Buffer> Reader<R> {
             self.buf.consume(1);
             try!(self.skip_ws());
         } else {
-            if !newline { return Ok(None); }
+            if newline.is_none() { return Ok(None); }
         }
         Ok(Some(()))
     }
@@ -291,15 +293,15 @@ impl<R:Buffer> Reader<R> {
     /// ~~~~
     ///
     /// Returns true when `ws` contains at least one `newline`.
-    fn skip_ws(&mut self) -> ReaderResult<bool> {
-        let mut has_newline = false;
+    fn skip_ws(&mut self) -> ReaderResult<Option<Newline>> {
+        let mut newline = None;
         loop {
             let mut comment_chars = false;
             try!(self.loop_with_buffer(|buf| {
                 for (i, &v) in buf.iter().enumerate() {
                     match v {
                         0x20 | 0x09 => {}
-                        0x0a | 0x0d => { has_newline = true; }
+                        0x0a | 0x0d => { newline = Some(Newline); }
                         0x23 => { comment_chars = true; return Some(i + 1); }
                         _ => { return Some(i); }
                     }
@@ -313,7 +315,7 @@ impl<R:Buffer> Reader<R> {
                 break;
             }
         }
-        Ok(has_newline)
+        Ok(newline)
     }
 
     /// Parses and discards `*non-newline-char` where:
@@ -386,27 +388,13 @@ impl<R:Buffer> Reader<R> {
             Some(b'{') => self.object_no_peek().map(|v| Some(repr::Object(v))),
             Some(b'[') => self.array_no_peek().map(|v| Some(repr::List(v))),
             Some(b @ b'-') | Some(b @ b'0'..b'9') => self.number_no_peek(b).map(Some),
-            Some(quote @ b'"') | Some(quote @ b'\'') => {
-                self.buf.consume(1);
-                match self.quoted_chars_then_quote(quote) {
-                    Ok(s) => Ok(Some(repr::OwnedString(s.into_string()))),
-                    Err(err) => Err(err),
-                }
-            },
+            Some(quote @ b'"') | Some(quote @ b'\'') =>
+                self.string_no_peek(quote).map(|s| Some(repr::OwnedString(s.into_string()))),
             Some(b'|') => {
                 let frags = try!(self.verbatim_string_no_peek());
                 Ok(Some(repr::OwnedString(frags.connect("\n"))))
             },
             _ => Ok(None),
-        }
-    }
-
-    /// Parses `object`.
-    fn object(&mut self) -> ReaderResult<repr::Object<'static>> {
-        try!(self.skip_ws());
-        match try!(self.peek()) {
-            Some(b'{') => self.object_no_peek(),
-            _ => reader_err("expected object"),
         }
     }
 
@@ -493,10 +481,8 @@ impl<R:Buffer> Reader<R> {
     /// ~~~~
     fn name_opt(&mut self) -> ReaderResult<Option<MaybeOwned<'static>>> {
         match try!(self.peek()) {
-            Some(quote @ b'"') | Some(quote @ b'\'') => {
-                self.buf.consume(1);
-                self.quoted_chars_then_quote(quote).map(|s| Some(s.into_maybe_owned()))
-            },
+            Some(quote @ b'"') | Some(quote @ b'\'') =>
+                self.string_no_peek(quote).map(|s| Some(s.into_maybe_owned())),
             Some(b) if is_id_start_byte(b) => self.bare_string_no_peek().map(Some),
             _ => Ok(None),
         }
@@ -645,20 +631,15 @@ impl<R:Buffer> Reader<R> {
         Ok(repr::Number(from_str::<f64>(s).unwrap()))
     }
 
-    /// Parses `string` where:
+    /// Given a known lookahead, parses `string` where:
     ///
     /// ~~~~ {.text}
     /// string = quotation-mark *dquoted-char quotation-mark
     ///        / apostrophe-mark *squoted-char apostrophe-mark
     /// ~~~~
-    fn string(&mut self) -> ReaderResult<MaybeOwned<'static>> {
-        match try!(self.peek()) {
-            Some(quote @ b'"') | Some(quote @ b'\'') => {
-                self.buf.consume(1);
-                self.quoted_chars_then_quote(quote)
-            }
-            _ => reader_err("expected a quoted string"),
-        }
+    fn string_no_peek(&mut self, quote: u8) -> ReaderResult<MaybeOwned<'static>> {
+        self.buf.consume(1);
+        self.quoted_chars_then_quote(quote)
     }
 
     /// Parses `*dquoted-char quotation-mark` (when `quote == '"'`) or
@@ -867,6 +848,7 @@ mod tests {
         })
     )
 
+    #[allow(non_snake_case_functions)] // make it look like a constructor
     fn String<'a>(s: &'a str) -> repr::Atom<'a> { repr::OwnedString(s.to_string()) }
     macro_rules! list([$($e:expr),*] => (repr::List(vec![$($e),*])))
     macro_rules! object([$($k:expr => $v:expr),*] =>
