@@ -3,7 +3,7 @@
 
 use std::{char, str, fmt};
 use std::str::MaybeOwned;
-use std::io::{IoError, IoResult, EndOfFile};
+use std::io::{BufReader, IoError, IoResult, EndOfFile};
 use std::collections::TreeMap;
 use super::repr;
 
@@ -173,14 +173,25 @@ impl<'a> Reader<'a> {
         Reader { buf: buf }
     }
 
+    pub fn parse_document_from_buf(buf: &[u8]) -> ReaderResult<repr::Atom<'static>> {
+        Reader::new(&mut BufReader::new(buf)).parse_document()
+    }
+
+    pub fn parse_value_from_buf(buf: &[u8]) -> ReaderResult<repr::Atom<'static>> {
+        Reader::new(&mut BufReader::new(buf)).parse_value()
+    }
+
     pub fn parse_document(mut self) -> ReaderResult<repr::Atom<'static>> {
         let ret = try!(self.document());
+        try!(self.skip_ws());
         try!(self.eof());
         Ok(ret)
     }
 
     pub fn parse_value(mut self) -> ReaderResult<repr::Atom<'static>> {
+        try!(self.skip_ws());
         let ret = try!(self.value());
+        try!(self.skip_ws());
         try!(self.eof());
         Ok(ret)
     }
@@ -218,9 +229,10 @@ impl<'a> Reader<'a> {
     fn fixed_token_opt(&mut self, token: &[u8]) -> ReaderResult<Option<()>> {
         static MAX_TOKEN_LEN: uint = 8;
         assert!(token.len() <= MAX_TOKEN_LEN);
-        let mut tokenbuf = [0u8, ..MAX_TOKEN_LEN];
+        let mut scratch = [0u8, ..MAX_TOKEN_LEN];
+        let tokenbuf = scratch.mut_slice_to(token.len());
         try!(into_reader_result(self.buf.read_at_least(token.len(), tokenbuf)));
-        if tokenbuf.slice_to(token.len()) == token { Ok(Some(())) } else { Ok(None) }
+        if tokenbuf == token { Ok(Some(())) } else { Ok(None) }
     }
 
     fn loop_with_buffer(&mut self, callback: |&[u8]| -> Option<uint>) -> ReaderResult<bool> {
@@ -356,7 +368,7 @@ impl<'a> Reader<'a> {
         Ok(bytes)
     }
 
-    /// Parses `value`.
+    /// Given every preceding whitespace skipped, parses `value`.
     fn value(&mut self) -> ReaderResult<repr::Atom<'static>> {
         match try!(self.value_opt()) {
             Some(value) => Ok(value),
@@ -364,7 +376,7 @@ impl<'a> Reader<'a> {
         }
     }
 
-    /// Parses `value` if possible, where:
+    /// Given every preceding whitespace skipped, parses `value` if possible, where:
     ///
     /// ~~~~ {.text}
     /// value = false / null / true / object / array / number / string
@@ -571,7 +583,9 @@ impl<'a> Reader<'a> {
         self.buf.consume(1);
 
         // special case. both JSON and CSON does not allow a zero-padded non-zero number.
-        if initial == b'0' {
+        let next = try!(self.peek());
+        if initial == b'0' && next != Some(b'.') && next != Some(b'e') && next != Some(b'E') {
+            // as long as it is not followed by `frac` and `exp`, we are free to shortcut
             return Ok(repr::IntegralNumber(0));
         }
 
@@ -832,14 +846,13 @@ impl<'a> Reader<'a> {
 #[cfg(test)]
 mod tests {
     use super::Reader;
-    use std::io::BufReader;
     use repr;
     use repr::{Null, True, False, Number};
     use Int = repr::IntegralNumber;
 
     macro_rules! valid(
         ($buf:expr, $repr:expr) => ({
-            let parsed = Reader::new(&mut BufReader::new($buf.as_bytes())).parse_value();
+            let parsed = Reader::parse_value_from_buf($buf.as_bytes());
             let expected = Ok($repr);
             assert_eq!(parsed, expected);
         })
@@ -847,7 +860,7 @@ mod tests {
 
     macro_rules! invalid(
         ($buf:expr) => ({
-            let parsed = Reader::new(&mut BufReader::new($buf.as_bytes())).parse_value();
+            let parsed = Reader::parse_value_from_buf($buf.as_bytes());
             assert!(parsed.is_err());
         })
     )
@@ -864,10 +877,16 @@ mod tests {
         valid!("null", Null);
         valid!("true", True);
         valid!("false", False);
+        valid!("0", Int(0));
         valid!("42", Int(42));
+        valid!("0.0", Number(0.0));
         valid!("42.0", Number(42.0));
+        valid!("0e3", Number(0.0));
+        valid!("42e3", Number(42000.0));
+        valid!("72057594037927936", Number(72057594037927936.0)); // 2^56 exceeds integral range
         valid!("[1, 2, 3]", list![Int(1), Int(2), Int(3)]);
         valid!("[1\n 2\n 3]", list![Int(1), Int(2), Int(3)]);
+        valid!("[null]", list![Null]);
         valid!("\"abc\"", String("abc"));
         valid!("'abc'", String("abc"));
         valid!("|abc\n|def", String("abc\ndef"));
