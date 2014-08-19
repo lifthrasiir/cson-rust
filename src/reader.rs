@@ -723,7 +723,7 @@ impl<'a> Reader<'a> {
                 // this wouldn't affect the validness of other raw `bytes` as UTF-8 ensures that
                 // no valid sequence can made into invalid one or vice versa.
                 let mut charbuf = [0u8, ..4];
-                let charbuflen = char::from_u32(ch).unwrap().encode_utf8(charbuf);
+                let charbuflen = char::from_u32(ch).unwrap().encode_utf8(charbuf).unwrap();
                 bytes.extend(charbuf.slice_to(charbuflen).iter().map(|&b| b));
             } else {
                 break;
