@@ -848,7 +848,7 @@ mod tests {
     use super::Reader;
     use repr;
     use repr::{Null, True, False, Number};
-    use Int = repr::IntegralNumber;
+    use repr::IntegralNumber as Int;
 
     macro_rules! valid(
         ($buf:expr, $repr:expr) => ({
