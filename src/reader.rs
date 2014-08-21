@@ -586,7 +586,7 @@ impl<'a> Reader<'a> {
         let next = try!(self.peek());
         if initial == b'0' && next != Some(b'.') && next != Some(b'e') && next != Some(b'E') {
             // as long as it is not followed by `frac` and `exp`, we are free to shortcut
-            return Ok(repr::IntegralNumber(0));
+            return Ok(repr::I64(0));
         }
 
         let mut bytes = vec![initial];
@@ -639,13 +639,13 @@ impl<'a> Reader<'a> {
 
         let s = str::from_utf8(bytes.as_slice()).unwrap();
         if try_integral {
-            // try to return as `IntegralNumber` if possible
+            // try to return as `I64` if possible
             match from_str::<i64>(s) {
-                Some(v) if (-1<<53) < v && v < (1<<53) => { return Ok(repr::IntegralNumber(v)); }
+                Some(v) if (-1<<53) < v && v < (1<<53) => { return Ok(repr::I64(v)); }
                 _ => {}
             }
         }
-        Ok(repr::Number(from_str::<f64>(s).unwrap()))
+        Ok(repr::F64(from_str::<f64>(s).unwrap()))
     }
 
     /// Given a known lookahead, parses `string` where:
@@ -847,8 +847,7 @@ impl<'a> Reader<'a> {
 mod tests {
     use super::Reader;
     use repr;
-    use repr::{Null, True, False, Number};
-    use repr::IntegralNumber as Int;
+    use repr::{Null, True, False, I64, F64};
 
     macro_rules! valid(
         ($buf:expr, $repr:expr) => ({
@@ -877,22 +876,22 @@ mod tests {
         valid!("null", Null);
         valid!("true", True);
         valid!("false", False);
-        valid!("0", Int(0));
-        valid!("42", Int(42));
-        valid!("0.0", Number(0.0));
-        valid!("42.0", Number(42.0));
-        valid!("0e3", Number(0.0));
-        valid!("42e3", Number(42000.0));
-        valid!("72057594037927936", Number(72057594037927936.0)); // 2^56 exceeds integral range
-        valid!("[1, 2, 3]", list![Int(1), Int(2), Int(3)]);
-        valid!("[1\n 2\n 3]", list![Int(1), Int(2), Int(3)]);
+        valid!("0", I64(0));
+        valid!("42", I64(42));
+        valid!("0.0", F64(0.0));
+        valid!("42.0", F64(42.0));
+        valid!("0e3", F64(0.0));
+        valid!("42e3", F64(42000.0));
+        valid!("72057594037927936", F64(72057594037927936.0)); // 2^56 exceeds integral range
+        valid!("[1, 2, 3]", list![I64(1), I64(2), I64(3)]);
+        valid!("[1\n 2\n 3]", list![I64(1), I64(2), I64(3)]);
         valid!("[null]", list![Null]);
         valid!("\"abc\"", String("abc"));
         valid!("'abc'", String("abc"));
         valid!("|abc\n|def", String("abc\ndef"));
         valid!("[|a\n\n |b\n\n |c\n,|d\n]", list![String("a\nb\nc"), String("d")]);
-        valid!("{\"f\": 1, 'g': 2}", object!["f" => Int(1), "g" => Int(2)]);
-        valid!("{f=1\n g=2}", object!["f" => Int(1), "g" => Int(2)]);
+        valid!("{\"f\": 1, 'g': 2}", object!["f" => I64(1), "g" => I64(2)]);
+        valid!("{f=1\n g=2}", object!["f" => I64(1), "g" => I64(2)]);
     }
 }
 
