@@ -232,7 +232,7 @@ impl<'a> Reader<'a> {
         let mut scratch = [0u8, ..MAX_TOKEN_LEN];
         let tokenbuf = scratch.mut_slice_to(token.len());
         try!(into_reader_result(self.buf.read_at_least(token.len(), tokenbuf)));
-        if tokenbuf == token { Ok(Some(())) } else { Ok(None) }
+        if tokenbuf.as_slice() == token { Ok(Some(())) } else { Ok(None) }
     }
 
     fn loop_with_buffer(&mut self, callback: |&[u8]| -> Option<uint>) -> ReaderResult<bool> {
