@@ -165,7 +165,7 @@ fn reader_err<T, Cause:IntoMaybeOwned<'static>>(cause: Cause) -> ReaderResult<T>
 struct Newline;
 
 pub struct Reader<'a> {
-    buf: &'a mut Buffer,
+    buf: &'a mut Buffer+'a,
 }
 
 impl<'a> Reader<'a> {
@@ -864,7 +864,7 @@ mod tests {
         })
     )
 
-    #[allow(non_snake_case_functions)] // make it look like a constructor
+    #[allow(non_snake_case)] // make it look like a constructor
     fn String<'a>(s: &'a str) -> repr::Atom<'a> { repr::OwnedString(s.to_string()) }
     macro_rules! list([$($e:expr),*] => (repr::List(vec![$($e),*])))
     macro_rules! object([$($k:expr => $v:expr),*] =>
