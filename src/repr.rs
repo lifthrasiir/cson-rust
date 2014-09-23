@@ -36,13 +36,13 @@ pub enum Atom<'a> {
     //UnparsedString(Slice<'a>),
     //ParsedString(Slice<'a>),
     OwnedString(String),
-    List(List<'a>),
-    Object(Object<'a>),
+    List(AtomList<'a>),
+    Object(AtomObject<'a>),
 }
 
 pub type Key<'a> = MaybeOwned<'a>;
-pub type List<'a> = Vec<Atom<'a>>;
-pub type Object<'a> = TreeMap<Key<'a>, Atom<'a>>;
+pub type AtomList<'a> = Vec<Atom<'a>>;
+pub type AtomObject<'a> = TreeMap<Key<'a>, Atom<'a>>;
 
 impl<'a> Atom<'a> {
     pub fn from_json<T: ToJson>(jsonlike: &T) -> Atom<'a> {
@@ -57,9 +57,9 @@ impl<'a> Atom<'a> {
             json::String(s) => OwnedString(s),
             json::Boolean(true) => True,
             json::Boolean(false) => False,
-            json::List(l) => List(l.move_iter().map(Atom::from_owned_json).collect()),
+            json::List(l) => List(l.into_iter().map(Atom::from_owned_json).collect()),
             json::Object(o) =>
-                Object(o.move_iter().map(|(k,v)| (k.into_maybe_owned(),
+                Object(o.into_iter().map(|(k,v)| (k.into_maybe_owned(),
                                                   Atom::from_owned_json(v))).collect()),
             json::Null => Null,
         }
@@ -74,8 +74,8 @@ impl<'a> Atom<'a> {
             U64(v) => U64(v),
             F64(v) => F64(v),
             OwnedString(s) => OwnedString(s),
-            List(l) => List(l.move_iter().map(|e| e.into_parsed()).collect()),
-            Object(o) => Object(o.move_iter().map(|(k,v)| (k,v.into_parsed())).collect()),
+            List(l) => List(l.into_iter().map(|e| e.into_parsed()).collect()),
+            Object(o) => Object(o.into_iter().map(|(k,v)| (k,v.into_parsed())).collect()),
         }
     }
 
@@ -88,8 +88,8 @@ impl<'a> Atom<'a> {
             U64(v) => U64(v),
             F64(v) => F64(v),
             OwnedString(s) => OwnedString(s),
-            List(l) => List(l.move_iter().map(|e| e.into_owned()).collect()),
-            Object(o) => Object(o.move_iter().map(|(k,v)| (k.into_string().into_maybe_owned(),
+            List(l) => List(l.into_iter().map(|e| e.into_owned()).collect()),
+            Object(o) => Object(o.into_iter().map(|(k,v)| (k.into_string().into_maybe_owned(),
                                                            v.into_owned())).collect()),
         }
     }

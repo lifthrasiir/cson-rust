@@ -230,7 +230,7 @@ impl<'a> Reader<'a> {
         static MAX_TOKEN_LEN: uint = 8;
         assert!(token.len() <= MAX_TOKEN_LEN);
         let mut scratch = [0u8, ..MAX_TOKEN_LEN];
-        let tokenbuf = scratch.mut_slice_to(token.len());
+        let tokenbuf = scratch.slice_to_mut(token.len());
         try!(into_reader_result(self.buf.read_at_least(token.len(), tokenbuf)));
         if tokenbuf.as_slice() == token { Ok(Some(())) } else { Ok(None) }
     }
@@ -421,7 +421,7 @@ impl<'a> Reader<'a> {
     /// begin-object    = ws %x7B ws    ; { left curly bracket
     /// end-object      = ws %x7D ws    ; } right curly bracket
     /// ~~~~
-    fn object_no_peek(&mut self) -> ReaderResult<repr::Object<'static>> {
+    fn object_no_peek(&mut self) -> ReaderResult<repr::AtomObject<'static>> {
         assert_eq!(self.peek(), Ok(Some(b'{')));
 
         self.buf.consume(1);
@@ -443,7 +443,7 @@ impl<'a> Reader<'a> {
     ///                 / newline ws
     /// newline = *(%x20 / %x09) newline-char
     /// ~~~~
-    fn object_items_opt(&mut self) -> ReaderResult<repr::Object<'static>> {
+    fn object_items_opt(&mut self) -> ReaderResult<repr::AtomObject<'static>> {
         let mut items = TreeMap::new();
         let (firstkey, firstvalue) = match try!(self.member_opt()) {
             Some(member) => member,
@@ -511,7 +511,7 @@ impl<'a> Reader<'a> {
     /// begin-array     = ws %x5B ws    ; [ left square bracket
     /// end-array       = ws %x5D ws    ; ] right square bracket
     /// ~~~~
-    fn array_no_peek(&mut self) -> ReaderResult<repr::List<'static>> {
+    fn array_no_peek(&mut self) -> ReaderResult<repr::AtomList<'static>> {
         assert_eq!(self.peek(), Ok(Some(b'[')));
 
         self.buf.consume(1);
@@ -529,7 +529,7 @@ impl<'a> Reader<'a> {
     /// ~~~~ {.text}
     /// array-items = value *( value-separator value ) [ value-separator ]
     /// ~~~~
-    fn array_items_opt(&mut self) -> ReaderResult<repr::List<'static>> {
+    fn array_items_opt(&mut self) -> ReaderResult<repr::AtomList<'static>> {
         let mut elements = Vec::new();
         let first = match try!(self.value_opt()) {
             Some(first) => first,
@@ -869,7 +869,7 @@ mod tests {
     macro_rules! list([$($e:expr),*] => (repr::List(vec![$($e),*])))
     macro_rules! object([$($k:expr => $v:expr),*] =>
                         (repr::Object(vec![$(($k.into_maybe_owned(),
-                                              $v)),*].move_iter().collect())))
+                                              $v)),*].into_iter().collect())))
 
     #[test]
     fn test_simple() {
