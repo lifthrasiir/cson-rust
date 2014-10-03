@@ -25,6 +25,10 @@
 
 #![feature(macro_rules)]
 
+// XXX temporarily cope with the nightly
+#![allow(unknown_features)]
+#![feature(slicing_syntax)]
+
 extern crate serialize;
 
 pub mod repr;
