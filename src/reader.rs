@@ -28,24 +28,24 @@ fn is_id_start(c: char) -> bool {
     match c {
         '\u0024' |
         '\u002D' |
-        '\u0041'..'\u005A' |
+        '\u0041'...'\u005A' |
         '\u005F' |
-        '\u0061'..'\u007A' |
+        '\u0061'...'\u007A' |
         '\u00AA' |
         '\u00B5' |
         '\u00BA' |
-        '\u00C0'..'\u00D6' |
-        '\u00D8'..'\u00F6' |
-        '\u00F8'..'\u02FF' |
-        '\u0370'..'\u037D' |
-        '\u037F'..'\u1FFF' |
-        '\u200C'..'\u200D' |
-        '\u2070'..'\u218F' |
-        '\u2C00'..'\u2FEF' |
-        '\u3001'..'\uD7FF' |
-        '\uF900'..'\uFDCF' |
-        '\uFDF0'..'\uFFFD' |
-        '\U00010000'..'\U000EFFFF' => true,
+        '\u00C0'...'\u00D6' |
+        '\u00D8'...'\u00F6' |
+        '\u00F8'...'\u02FF' |
+        '\u0370'...'\u037D' |
+        '\u037F'...'\u1FFF' |
+        '\u200C'...'\u200D' |
+        '\u2070'...'\u218F' |
+        '\u2C00'...'\u2FEF' |
+        '\u3001'...'\uD7FF' |
+        '\uF900'...'\uFDCF' |
+        '\uFDF0'...'\uFFFD' |
+        '\U00010000'...'\U000EFFFF' => true,
         _ => false
     }
 }
@@ -54,18 +54,18 @@ fn is_id_start_byte(b: u8) -> bool {
     match b {
         0x24 |       // %x24 /
         0x2d |       // %x2D /
-        0x41..0x5a | // %x41-5A /
+        0x41...0x5a | // %x41-5A /
         0x5f |       // %x5F /
-        0x61..0x7a | // %x61-7A /
+        0x61...0x7a | // %x61-7A /
         0xc2 |       // %xAA / %xB5 / %xBA /
         0xc3 |       // %xC0-D6 / %xD8-F6 / %xF8-FF /
-        0xc4..0xcb | // %x0100-02FF /
+        0xc4...0xcb | // %x0100-02FF /
         0xcd |       // %x0370-037D / %x037F /
-        0xce..0xe1 | // %x0380-1FFF /
+        0xce...0xe1 | // %x0380-1FFF /
         0xe2 |       // %x200C-200D / %x2070-218F / %x2C00-2FEF /
-        0xe3..0xed | // %x3001-D7FF /
+        0xe3...0xed | // %x3001-D7FF /
         0xef |       // %xF900-FDCF / %xFDF0-FFFD /
-        0xf0..0xf3   // %x10000-EFFFF
+        0xf0...0xf3   // %x10000-EFFFF
             => true,
         _ => false
     }
@@ -90,46 +90,46 @@ fn test_is_id_start() {
 fn is_id_end(c: char) -> bool {
     match c {
         '\u0024' |
-        '\u002D'..'\u002E' |
-        '\u0030'..'\u0039' |
-        '\u0041'..'\u005A' |
+        '\u002D'...'\u002E' |
+        '\u0030'...'\u0039' |
+        '\u0041'...'\u005A' |
         '\u005F' |
-        '\u0061'..'\u007A' |
+        '\u0061'...'\u007A' |
         '\u00AA' |
         '\u00B5' |
         '\u00B7' |
         '\u00BA' |
-        '\u00C0'..'\u00D6' |
-        '\u00D8'..'\u00F6' |
-        '\u00F8'..'\u037D' |
-        '\u037F'..'\u1FFF' |
-        '\u200C'..'\u200D' |
-        '\u203F'..'\u2040' |
-        '\u2070'..'\u218F' |
-        '\u2C00'..'\u2FEF' |
-        '\u3001'..'\uD7FF' |
-        '\uF900'..'\uFDCF' |
-        '\uFDF0'..'\uFFFD' |
-        '\U00010000'..'\U000EFFFF' => true,
+        '\u00C0'...'\u00D6' |
+        '\u00D8'...'\u00F6' |
+        '\u00F8'...'\u037D' |
+        '\u037F'...'\u1FFF' |
+        '\u200C'...'\u200D' |
+        '\u203F'...'\u2040' |
+        '\u2070'...'\u218F' |
+        '\u2C00'...'\u2FEF' |
+        '\u3001'...'\uD7FF' |
+        '\uF900'...'\uFDCF' |
+        '\uFDF0'...'\uFFFD' |
+        '\U00010000'...'\U000EFFFF' => true,
         _ => false
     }
 }
 
 fn is_id_end_byte(b: u8) -> bool {
     match b {
-        0x24 |       // %x24 /
-        0x2d..0x2e | // %x2D-2E /
-        0x30..0x39 | // %x30-39 /
-        0x41..0x5a | // %x41-5A /
-        0x5f |       // %x5F /
-        0x61..0x7a | // %x61-7A /
-        0xc2 |       // %xAA / %xB5 / %xB7 / %xBA /
-        0xc3 |       // %xC0-D6 / %xD8-F6 / %xF8-FF /
-        0xc4..0xe1 | // %x0100-037D / %x037F-1FFF /
-        0xe2 |       // %x200C-200D / %x203F-2040 / %x2070-218F / %x2C00-2FEF /
-        0xe3..0xed | // %x3001-D7FF /
-        0xef |       // %xF900-FDCF / %xFDF0-FFFD /
-        0xf0..0xf3   // %x10000-EFFFF
+        0x24 |        // %x24 /
+        0x2d...0x2e | // %x2D-2E /
+        0x30...0x39 | // %x30-39 /
+        0x41...0x5a | // %x41-5A /
+        0x5f |        // %x5F /
+        0x61...0x7a | // %x61-7A /
+        0xc2 |        // %xAA / %xB5 / %xB7 / %xBA /
+        0xc3 |        // %xC0-D6 / %xD8-F6 / %xF8-FF /
+        0xc4...0xe1 | // %x0100-037D / %x037F-1FFF /
+        0xe2 |        // %x200C-200D / %x203F-2040 / %x2070-218F / %x2C00-2FEF /
+        0xe3...0xed | // %x3001-D7FF /
+        0xef |        // %xF900-FDCF / %xFDF0-FFFD /
+        0xf0...0xf3   // %x10000-EFFFF
             => true,
         _ => false
     }
@@ -402,7 +402,7 @@ impl<'a> Reader<'a> {
             },
             Some(b'{') => self.object_no_peek().map(|v| Some(repr::Object(v))),
             Some(b'[') => self.array_no_peek().map(|v| Some(repr::List(v))),
-            Some(b @ b'-') | Some(b @ b'0'..b'9') => self.number_no_peek(b).map(Some),
+            Some(b @ b'-') | Some(b @ b'0'...b'9') => self.number_no_peek(b).map(Some),
             Some(quote @ b'"') | Some(quote @ b'\'') =>
                 self.string_no_peek(quote).map(|s| Some(repr::OwnedString(s.into_string()))),
             Some(b'|') => {
@@ -594,7 +594,7 @@ impl<'a> Reader<'a> {
         // we need to ensure if this parse would end up with at least one number
         if initial == b'-' {
             match try!(self.peek()) {
-                Some(b @ b'0'..b'9') => { bytes.push(b); self.buf.consume(1); }
+                Some(b @ b'0'...b'9') => { bytes.push(b); self.buf.consume(1); }
                 _ => { return reader_err("expected a number, got `-`"); }
             }
         }
@@ -609,7 +609,7 @@ impl<'a> Reader<'a> {
                 bytes.push(b'.');
                 self.buf.consume(1);
                 match try!(self.peek()) {
-                    Some(b @ b'0'..b'9') => { bytes.push(b); self.buf.consume(1); }
+                    Some(b @ b'0'...b'9') => { bytes.push(b); self.buf.consume(1); }
                     _ => { return reader_err("a number cannot have a trailing decimal point"); }
                 }
                 try!(self.digits_opt(&mut bytes));
@@ -628,7 +628,7 @@ impl<'a> Reader<'a> {
                     _ => {}
                 }
                 match try!(self.peek()) {
-                    Some(b @ b'0'..b'9') => { bytes.push(b); self.buf.consume(1); }
+                    Some(b @ b'0'...b'9') => { bytes.push(b); self.buf.consume(1); }
                     _ => { return reader_err("a number has an incomplete exponent part"); }
                 }
                 try!(self.digits_opt(&mut bytes));
@@ -696,7 +696,7 @@ impl<'a> Reader<'a> {
 
             if escaped_follows {
                 let ch = match try!(self.escaped_minus_escape()) {
-                    first @ 0xd800..0xdbff => {
+                    first @ 0xd800...0xdbff => {
                         // lower surrogate, should be followed by an escaped upper surrogate
                         if try!(self.peek()) != Some(b'\\') {
                             return reader_err(format!("lower surrogate `\\u{:04x}` is not followed \
@@ -711,7 +711,7 @@ impl<'a> Reader<'a> {
                         }
                         0x10000 + (((first - 0xd800) as u32 << 10) | ((second - 0xdc00) as u32))
                     },
-                    second @ 0xdc00..0xdfff => {
+                    second @ 0xdc00...0xdfff => {
                         // upper surrogate, not allowed
                         return reader_err(format!("upper surrogate `\\u{:04x}` cannot be used \
                                                    independently", second));
@@ -769,9 +769,9 @@ impl<'a> Reader<'a> {
             Some(b'u') => {
                 let read_hex_digit = || {
                     match try!(into_reader_result(self.buf.read_byte())) {
-                        Some(b @ b'0'..b'9') => Ok((b - b'0') as u16 + 0),
-                        Some(b @ b'a'..b'f') => Ok((b - b'a') as u16 + 10),
-                        Some(b @ b'A'..b'F') => Ok((b - b'A') as u16 + 10),
+                        Some(b @ b'0'...b'9') => Ok((b - b'0') as u16 + 0),
+                        Some(b @ b'a'...b'f') => Ok((b - b'a') as u16 + 10),
+                        Some(b @ b'A'...b'F') => Ok((b - b'A') as u16 + 10),
                         Some(_) => reader_err("invalid hexadecimal digits after `\\u`"),
                         None => reader_err("incomplete escape sequence"),
                     }
@@ -827,13 +827,13 @@ impl<'a> Reader<'a> {
 
         let mut s = String::new();
         match try!(into_reader_result(self.buf.read_char())) {
-            Some(ch) if is_id_start(ch) => { s.push_char(ch); }
+            Some(ch) if is_id_start(ch) => { s.push(ch); }
             Some(_) => { return reader_err("expected a bare string, got an invalid character"); }
             None    => { return reader_err("expected a bare string, got the end of file"); }
         };
         while try!(self.peek()).map_or(false, is_id_end_byte) {
             match try!(into_reader_result(self.buf.read_char())) {
-                Some(ch) if is_id_end(ch) => { s.push_char(ch); }
+                Some(ch) if is_id_end(ch) => { s.push(ch); }
                 Some(_) => { return reader_err("expected a bare string, got an invalid \
                                                 character"); }
                 None    => { return reader_err("expected a bare string, got the end of file"); }
