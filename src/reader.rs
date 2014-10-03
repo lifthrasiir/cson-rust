@@ -230,7 +230,7 @@ impl<'a> Reader<'a> {
         static MAX_TOKEN_LEN: uint = 8;
         assert!(token.len() <= MAX_TOKEN_LEN);
         let mut scratch = [0u8, ..MAX_TOKEN_LEN];
-        let tokenbuf = scratch.slice_to_mut(token.len());
+        let tokenbuf = scratch[mut ..token.len()];
         try!(into_reader_result(self.buf.read_at_least(token.len(), tokenbuf)));
         if tokenbuf.as_slice() == token { Ok(Some(())) } else { Ok(None) }
     }
@@ -362,7 +362,7 @@ impl<'a> Reader<'a> {
                     break;
                 }
             }
-            bytes.extend(buf.slice_to(ret.unwrap_or(buf.len())).iter().map(|&b| b));
+            bytes.extend(buf[..ret.unwrap_or(buf.len())].iter().map(|&b| b));
             ret
         }));
         Ok(bytes)
@@ -557,7 +557,7 @@ impl<'a> Reader<'a> {
                     break;
                 }
             }
-            bytes.extend(buf.slice_to(ret.unwrap_or(buf.len())).iter().map(|&b| b));
+            bytes.extend(buf[..ret.unwrap_or(buf.len())].iter().map(|&b| b));
             ret
         }));
         Ok(())
@@ -637,7 +637,7 @@ impl<'a> Reader<'a> {
             _ => {}
         }
 
-        let s = str::from_utf8(bytes.as_slice()).unwrap();
+        let s = str::from_utf8(bytes[]).unwrap();
         if try_integral {
             // try to return as `I64` if possible
             match from_str::<i64>(s) {
@@ -687,7 +687,7 @@ impl<'a> Reader<'a> {
                     }
                 }
                 // `ret`, if set, contains one additional byte which should not be in `bytes`.
-                bytes.extend(buf.slice_to(ret.map_or(buf.len(), |i| i-1)).iter().map(|&b| b));
+                bytes.extend(buf[..ret.map_or(buf.len(), |i| i-1)].iter().map(|&b| b));
                 ret
             }));
             if !keepgoing {
@@ -724,7 +724,7 @@ impl<'a> Reader<'a> {
                 // no valid sequence can made into invalid one or vice versa.
                 let mut charbuf = [0u8, ..4];
                 let charbuflen = char::from_u32(ch).unwrap().encode_utf8(charbuf).unwrap();
-                bytes.extend(charbuf.slice_to(charbuflen).iter().map(|&b| b));
+                bytes.extend(charbuf[..charbuflen].iter().map(|&b| b));
             } else {
                 break;
             }
