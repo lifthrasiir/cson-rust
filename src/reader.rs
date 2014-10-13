@@ -227,7 +227,7 @@ impl<'a> Reader<'a> {
     }
 
     fn fixed_token_opt(&mut self, token: &[u8]) -> ReaderResult<Option<()>> {
-        static MAX_TOKEN_LEN: uint = 8;
+        const MAX_TOKEN_LEN: uint = 8;
         assert!(token.len() <= MAX_TOKEN_LEN);
         let mut scratch = [0u8, ..MAX_TOKEN_LEN];
         let tokenbuf = scratch[mut ..token.len()];
