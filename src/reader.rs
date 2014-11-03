@@ -164,12 +164,21 @@ fn reader_err<T, Cause:IntoMaybeOwned<'static>>(cause: Cause) -> ReaderResult<T>
 
 struct Newline;
 
+// XXX &mut Buffer is invalid (Rust bug #18530)
+trait Bufferlike: Buffer {
+    fn consume_(&mut self, amt: uint) { self.consume(amt); }
+    fn fill_buf_(&mut self) -> IoResult<&[u8]> { self.fill_buf() }
+}
+
+impl<T: Buffer> Bufferlike for T {
+}
+
 pub struct Reader<'a> {
-    buf: &'a mut Buffer+'a,
+    buf: &'a mut Bufferlike+'a,
 }
 
 impl<'a> Reader<'a> {
-    pub fn new(buf: &'a mut Buffer) -> Reader<'a> {
+    pub fn new<T: Buffer>(buf: &'a mut T) -> Reader<'a> {
         Reader { buf: buf }
     }
 
