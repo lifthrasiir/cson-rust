@@ -8,7 +8,7 @@ use std::collections::TreeMap;
 use serialize::json;
 use serialize::json::ToJson;
 
-#[deriving(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[deriving(Clone, PartialEq, Eq)]
 pub struct Slice<'a>(&'a str);
 
 impl<'a> Slice<'a> {
@@ -21,6 +21,24 @@ impl<'a> Str for Slice<'a> {
     fn as_slice<'a>(&'a self) -> &'a str {
         let Slice(slice) = *self;
         slice
+    }
+}
+
+// XXX Rust issue #18738, should be fine with #[deriving(PartialOrd)]
+impl<'a> PartialOrd for Slice<'a> {
+    fn partial_cmp(&self, other: &Slice<'a>) -> Option<Ordering> {
+        let Slice(lhs) = *self;
+        let Slice(rhs) = *other;
+        lhs.partial_cmp(rhs)
+    }
+}
+
+// XXX Rust issue #18738, should be fine with #[deriving(Ord)]
+impl<'a> Ord for Slice<'a> {
+    fn cmp(&self, other: &Slice<'a>) -> Ordering {
+        let Slice(lhs) = *self;
+        let Slice(rhs) = *other;
+        lhs.cmp(rhs)
     }
 }
 
