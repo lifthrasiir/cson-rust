@@ -8,6 +8,8 @@ use std::collections::TreeMap;
 use serialize::json;
 use serialize::json::ToJson;
 
+pub use self::Atom::{Null, True, False, I64, U64, F64, OwnedString, List, Object};
+
 #[deriving(Clone, PartialEq, Eq)]
 pub struct Slice<'a>(&'a str);
 

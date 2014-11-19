@@ -77,7 +77,7 @@ fn test_is_id_start() {
     for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_start(c)) {
         assert!(is_id_end(c), "is_id_end('{}' /*{:x}*/) is false", c, c as u32);
         let mut buf = [0u8, ..4];
-        c.encode_utf8(buf);
+        c.encode_utf8(buf.as_mut_slice());
         present[buf[0] as uint] = true;
     }
     for b in range(0u, 256) {
@@ -140,7 +140,7 @@ fn test_is_id_end() {
     let mut present = [false, ..256];
     for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_end(c)) {
         let mut buf = [0u8, ..4];
-        c.encode_utf8(buf);
+        c.encode_utf8(buf.as_mut_slice());
         present[buf[0] as uint] = true;
     }
     for b in range(0u, 256) {
@@ -732,7 +732,8 @@ impl<'a> Reader<'a> {
                 // this wouldn't affect the validness of other raw `bytes` as UTF-8 ensures that
                 // no valid sequence can made into invalid one or vice versa.
                 let mut charbuf = [0u8, ..4];
-                let charbuflen = char::from_u32(ch).unwrap().encode_utf8(charbuf).unwrap();
+                let charbuflen =
+                    char::from_u32(ch).unwrap().encode_utf8(charbuf.as_mut_slice()).unwrap();
                 bytes.extend(charbuf[..charbuflen].iter().map(|&b| b));
             } else {
                 break;
