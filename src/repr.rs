@@ -8,7 +8,7 @@ use std::collections::TreeMap;
 use serialize::json;
 use serialize::json::ToJson;
 
-pub use self::Atom::{Null, True, False, I64, U64, F64, OwnedString, List, Object};
+pub use self::Atom::{Null, True, False, I64, U64, F64, OwnedString, Array, Object};
 
 #[deriving(Clone, PartialEq, Eq)]
 pub struct Slice<'a>(&'a str);
@@ -56,12 +56,12 @@ pub enum Atom<'a> {
     //UnparsedString(Slice<'a>),
     //ParsedString(Slice<'a>),
     OwnedString(String),
-    List(AtomList<'a>),
+    Array(AtomArray<'a>),
     Object(AtomObject<'a>),
 }
 
 pub type Key<'a> = MaybeOwned<'a>;
-pub type AtomList<'a> = Vec<Atom<'a>>;
+pub type AtomArray<'a> = Vec<Atom<'a>>;
 pub type AtomObject<'a> = TreeMap<Key<'a>, Atom<'a>>;
 
 impl<'a> Atom<'a> {
@@ -77,7 +77,7 @@ impl<'a> Atom<'a> {
             json::String(s) => OwnedString(s),
             json::Boolean(true) => True,
             json::Boolean(false) => False,
-            json::List(l) => List(l.into_iter().map(Atom::from_owned_json).collect()),
+            json::Array(l) => Array(l.into_iter().map(Atom::from_owned_json).collect()),
             json::Object(o) =>
                 Object(o.into_iter().map(|(k,v)| (k.into_maybe_owned(),
                                                   Atom::from_owned_json(v))).collect()),
@@ -94,7 +94,7 @@ impl<'a> Atom<'a> {
             U64(v) => U64(v),
             F64(v) => F64(v),
             OwnedString(s) => OwnedString(s),
-            List(l) => List(l.into_iter().map(|e| e.into_parsed()).collect()),
+            Array(l) => Array(l.into_iter().map(|e| e.into_parsed()).collect()),
             Object(o) => Object(o.into_iter().map(|(k,v)| (k,v.into_parsed())).collect()),
         }
     }
@@ -108,7 +108,7 @@ impl<'a> Atom<'a> {
             U64(v) => U64(v),
             F64(v) => F64(v),
             OwnedString(s) => OwnedString(s),
-            List(l) => List(l.into_iter().map(|e| e.into_owned()).collect()),
+            Array(l) => Array(l.into_iter().map(|e| e.into_owned()).collect()),
             Object(o) => Object(o.into_iter().map(|(k,v)| (k.into_string().into_maybe_owned(),
                                                            v.into_owned())).collect()),
         }
@@ -125,7 +125,7 @@ impl<'a> ToJson for Atom<'a> {
             U64(v) => json::U64(v),
             F64(v) => json::F64(v),
             OwnedString(ref s) => json::String(s.clone()),
-            List(ref l) => json::List(l.iter().map(|e| e.to_json()).collect()),
+            Array(ref l) => json::Array(l.iter().map(|e| e.to_json()).collect()),
             Object(ref o) => json::Object(o.iter().map(|(k,v)| (k.to_string(),
                                                                 v.to_json())).collect()),
         }

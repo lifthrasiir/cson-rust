@@ -276,7 +276,7 @@ impl<'a> Reader<'a> {
         try!(self.skip_ws());
         match try!(self.peek()) {
             Some(b'{') => self.object_no_peek().map(repr::Object),
-            Some(b'[') => self.array_no_peek().map(repr::List),
+            Some(b'[') => self.array_no_peek().map(repr::Array),
             Some(_) => { try!(self.skip_ws()); Ok(repr::Object(try!(self.object_items_opt()))) },
             _ => reader_err("expected document"),
         }
@@ -410,7 +410,7 @@ impl<'a> Reader<'a> {
                 None => reader_err("expected true"),
             },
             Some(b'{') => self.object_no_peek().map(|v| Some(repr::Object(v))),
-            Some(b'[') => self.array_no_peek().map(|v| Some(repr::List(v))),
+            Some(b'[') => self.array_no_peek().map(|v| Some(repr::Array(v))),
             Some(b @ b'-') | Some(b @ b'0'...b'9') => self.number_no_peek(b).map(Some),
             Some(quote @ b'"') | Some(quote @ b'\'') =>
                 self.string_no_peek(quote).map(|s| Some(repr::OwnedString(s.into_string()))),
@@ -520,7 +520,7 @@ impl<'a> Reader<'a> {
     /// begin-array     = ws %x5B ws    ; [ left square bracket
     /// end-array       = ws %x5D ws    ; ] right square bracket
     /// ~~~~
-    fn array_no_peek(&mut self) -> ReaderResult<repr::AtomList<'static>> {
+    fn array_no_peek(&mut self) -> ReaderResult<repr::AtomArray<'static>> {
         assert_eq!(self.peek(), Ok(Some(b'[')));
 
         self.buf.consume(1);
@@ -538,7 +538,7 @@ impl<'a> Reader<'a> {
     /// ~~~~ {.text}
     /// array-items = value *( value-separator value ) [ value-separator ]
     /// ~~~~
-    fn array_items_opt(&mut self) -> ReaderResult<repr::AtomList<'static>> {
+    fn array_items_opt(&mut self) -> ReaderResult<repr::AtomArray<'static>> {
         let mut elements = Vec::new();
         let first = match try!(self.value_opt()) {
             Some(first) => first,
@@ -876,7 +876,7 @@ mod tests {
 
     #[allow(non_snake_case)] // make it look like a constructor
     fn String<'a>(s: &'a str) -> repr::Atom<'a> { repr::OwnedString(s.to_string()) }
-    macro_rules! list([$($e:expr),*] => (repr::List(vec![$($e),*])))
+    macro_rules! array([$($e:expr),*] => (repr::Array(vec![$($e),*])))
     macro_rules! object([$($k:expr => $v:expr),*] =>
                         (repr::Object(vec![$(($k.into_maybe_owned(),
                                               $v)),*].into_iter().collect())))
@@ -893,13 +893,13 @@ mod tests {
         valid!("0e3", F64(0.0));
         valid!("42e3", F64(42000.0));
         valid!("72057594037927936", F64(72057594037927936.0)); // 2^56 exceeds integral range
-        valid!("[1, 2, 3]", list![I64(1), I64(2), I64(3)]);
-        valid!("[1\n 2\n 3]", list![I64(1), I64(2), I64(3)]);
-        valid!("[null]", list![Null]);
+        valid!("[1, 2, 3]", array![I64(1), I64(2), I64(3)]);
+        valid!("[1\n 2\n 3]", array![I64(1), I64(2), I64(3)]);
+        valid!("[null]", array![Null]);
         valid!("\"abc\"", String("abc"));
         valid!("'abc'", String("abc"));
         valid!("|abc\n|def", String("abc\ndef"));
-        valid!("[|a\n\n |b\n\n |c\n,|d\n]", list![String("a\nb\nc"), String("d")]);
+        valid!("[|a\n\n |b\n\n |c\n,|d\n]", array![String("a\nb\nc"), String("d")]);
         valid!("{\"f\": 1, 'g': 2}", object!["f" => I64(1), "g" => I64(2)]);
         valid!("{f=1\n g=2}", object!["f" => I64(1), "g" => I64(2)]);
     }
