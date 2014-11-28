@@ -2,14 +2,15 @@
 // Written by Kang Seonghoon. See README.md for details.
 
 use std::{char, str, fmt};
-use std::str::MaybeOwned;
+use std::str::{SendStr, CowString};
 use std::io::{BufReader, IoError, IoResult, EndOfFile};
 use std::collections::TreeMap;
 use super::repr;
+use super::repr::Key;
 
 #[deriving(PartialEq)]
 pub struct ReaderError {
-    pub cause: MaybeOwned<'static>,
+    pub cause: SendStr,
     pub ioerr: Option<IoError>,
 }
 
@@ -154,12 +155,12 @@ fn into_reader_result<T>(res: IoResult<T>) -> ReaderResult<Option<T>> {
     match res {
         Ok(v) => Ok(Some(v)),
         Err(ref err) if err.kind == EndOfFile => Ok(None),
-        Err(err) => Err(ReaderError { cause: "I/O error".into_maybe_owned(), ioerr: Some(err) })
+        Err(err) => Err(ReaderError { cause: "I/O error".into_cow(), ioerr: Some(err) })
     }
 }
 
-fn reader_err<T, Cause:IntoMaybeOwned<'static>>(cause: Cause) -> ReaderResult<T> {
-    Err(ReaderError { cause: cause.into_maybe_owned(), ioerr: None })
+fn reader_err<T, Cause:IntoCow<'static,String,str>>(cause: Cause) -> ReaderResult<T> {
+    Err(ReaderError { cause: cause.into_cow(), ioerr: None })
 }
 
 struct Newline;
@@ -416,7 +417,8 @@ impl<'a> Reader<'a> {
                 self.string_no_peek(quote).map(|s| Some(repr::OwnedString(s.into_string()))),
             Some(b'|') => {
                 let frags = try!(self.verbatim_string_no_peek());
-                Ok(Some(repr::OwnedString(frags.connect("\n"))))
+                let frags_: Vec<&str> = frags.iter().map(|s| s.as_slice()).collect(); // XXX
+                Ok(Some(repr::OwnedString(frags_.connect("\n"))))
             },
             _ => Ok(None),
         }
@@ -488,7 +490,7 @@ impl<'a> Reader<'a> {
         }
         try!(self.skip_ws());
         let value = try!(self.value());
-        Ok(Some((name, value)))
+        Ok(Some((Key::new(name), value)))
     }
 
     /// Parses `name` if possible, where:
@@ -503,10 +505,10 @@ impl<'a> Reader<'a> {
     ///          / %x3001-D7FF / %xF900-FDCF / %xFDF0-FFFD / %x10000-EFFFF
     /// id-end = id-start / %x2E / %x30-39 / %xB7 / %x0300-036F / %x203F-2040
     /// ~~~~
-    fn name_opt(&mut self) -> ReaderResult<Option<MaybeOwned<'static>>> {
+    fn name_opt(&mut self) -> ReaderResult<Option<CowString<'static>>> {
         match try!(self.peek()) {
             Some(quote @ b'"') | Some(quote @ b'\'') =>
-                self.string_no_peek(quote).map(|s| Some(s.into_maybe_owned())),
+                self.string_no_peek(quote).map(|s| Some(s.into_cow())),
             Some(b) if is_id_start_byte(b) => self.bare_string_no_peek().map(Some),
             _ => Ok(None),
         }
@@ -663,7 +665,7 @@ impl<'a> Reader<'a> {
     /// string = quotation-mark *dquoted-char quotation-mark
     ///        / apostrophe-mark *squoted-char apostrophe-mark
     /// ~~~~
-    fn string_no_peek(&mut self, quote: u8) -> ReaderResult<MaybeOwned<'static>> {
+    fn string_no_peek(&mut self, quote: u8) -> ReaderResult<CowString<'static>> {
         self.buf.consume(1);
         self.quoted_chars_then_quote(quote)
     }
@@ -679,7 +681,7 @@ impl<'a> Reader<'a> {
     /// dquoted-unescaped = %x20-21 / %x23-5B / %x5D-10FFFF
     /// squoted-unescaped = %x20-26 / %x28-5B / %x5D-10FFFF
     /// ~~~~
-    fn quoted_chars_then_quote(&mut self, quote: u8) -> ReaderResult<MaybeOwned<'static>> {
+    fn quoted_chars_then_quote(&mut self, quote: u8) -> ReaderResult<CowString<'static>> {
         let mut bytes = Vec::new();
         loop {
             let mut escaped_follows = false;
@@ -741,7 +743,7 @@ impl<'a> Reader<'a> {
         }
 
         match String::from_utf8(bytes) {
-            Ok(s) => Ok(s.into_maybe_owned()),
+            Ok(s) => Ok(s.into_cow()),
             Err(_) => reader_err("invalid UTF-8 sequence in a quoted string"),
         }
     }
@@ -804,14 +806,14 @@ impl<'a> Reader<'a> {
     /// verbatim-fragment = pipe *verbatim-char
     /// pipe = %x7C                     ; |
     /// ~~~~
-    fn verbatim_string_no_peek(&mut self) -> ReaderResult<Vec<MaybeOwned<'static>>> {
+    fn verbatim_string_no_peek(&mut self) -> ReaderResult<Vec<CowString<'static>>> {
         assert_eq!(self.peek(), Ok(Some(b'|')));
 
         let mut frags = Vec::new();
         loop {
             self.buf.consume(1);
             match String::from_utf8(try!(self.non_newline_chars())) {
-                Ok(bytes) => { frags.push(bytes.into_maybe_owned()); }
+                Ok(bytes) => { frags.push(bytes.into_cow()); }
                 Err(_) => { return reader_err("invalid UTF-8 sequence in a verbatim string"); }
             }
             self.buf.consume(1); // either 0x0a or 0x0d
@@ -832,7 +834,7 @@ impl<'a> Reader<'a> {
     ///          / %x3001-D7FF / %xF900-FDCF / %xFDF0-FFFD / %x10000-EFFFF
     /// id-end = id-start / %x2E / %x30-39 / %xB7 / %x0300-036F / %x203F-2040
     /// ~~~~
-    fn bare_string_no_peek(&mut self) -> ReaderResult<MaybeOwned<'static>> {
+    fn bare_string_no_peek(&mut self) -> ReaderResult<CowString<'static>> {
         assert!(self.peek().ok().and_then(|c| c).map_or(false, is_id_start_byte));
 
         let mut s = String::new();
@@ -849,7 +851,7 @@ impl<'a> Reader<'a> {
                 None    => { return reader_err("expected a bare string, got the end of file"); }
             };
         }
-        Ok(s.into_maybe_owned())
+        Ok(s.into_cow())
     }
 }
 
@@ -878,8 +880,7 @@ mod tests {
     fn String<'a>(s: &'a str) -> repr::Atom<'a> { repr::OwnedString(s.to_string()) }
     macro_rules! array([$($e:expr),*] => (repr::Array(vec![$($e),*])))
     macro_rules! object([$($k:expr => $v:expr),*] =>
-                        (repr::Object(vec![$(($k.into_maybe_owned(),
-                                              $v)),*].into_iter().collect())))
+                        (repr::Object(vec![$((repr::Key::new($k), $v)),*].into_iter().collect())))
 
     #[test]
     fn test_simple() {

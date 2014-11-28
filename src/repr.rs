@@ -3,7 +3,8 @@
 
 //! An internal representation of CSON data.
 
-use std::str::MaybeOwned;
+use std::{borrow, fmt};
+use std::str::CowString;
 use std::collections::TreeMap;
 use serialize::json;
 use serialize::json::ToJson;
@@ -60,7 +61,34 @@ pub enum Atom<'a> {
     Object(AtomObject<'a>),
 }
 
-pub type Key<'a> = MaybeOwned<'a>;
+#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+pub struct Key<'a>(pub CowString<'a>);
+
+impl<'a> Key<'a> {
+    pub fn new<T:IntoCow<'a,String,str>>(s: T) -> Key<'a> { Key(s.into_cow()) }
+}
+
+impl<'a> Deref<str> for Key<'a> {
+    fn deref<'b>(&'b self) -> &'b str { let Key(ref s) = *self; s.deref() }
+}
+
+impl<'a> Str for Key<'a> {
+    fn as_slice<'b>(&'b self) -> &'b str { let Key(ref s) = *self; s.as_slice() }
+}
+
+impl<'a> Clone for Key<'a> {
+    fn clone(&self) -> Key<'a> {
+        match *self {
+            Key(borrow::Borrowed(s)) => Key(borrow::Borrowed(s)),
+            Key(borrow::Owned(ref s)) => Key(borrow::Owned(s.clone())),
+        }
+    }
+}
+
+impl<'a> fmt::Show for Key<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { let Key(ref s) = *self; s.fmt(f) }
+}
+
 pub type AtomArray<'a> = Vec<Atom<'a>>;
 pub type AtomObject<'a> = TreeMap<Key<'a>, Atom<'a>>;
 
@@ -79,7 +107,7 @@ impl<'a> Atom<'a> {
             json::Boolean(false) => False,
             json::Array(l) => Array(l.into_iter().map(Atom::from_owned_json).collect()),
             json::Object(o) =>
-                Object(o.into_iter().map(|(k,v)| (k.into_maybe_owned(),
+                Object(o.into_iter().map(|(k,v)| (Key::new(k),
                                                   Atom::from_owned_json(v))).collect()),
             json::Null => Null,
         }
@@ -109,7 +137,7 @@ impl<'a> Atom<'a> {
             F64(v) => F64(v),
             OwnedString(s) => OwnedString(s),
             Array(l) => Array(l.into_iter().map(|e| e.into_owned()).collect()),
-            Object(o) => Object(o.into_iter().map(|(k,v)| (k.into_string().into_maybe_owned(),
+            Object(o) => Object(o.into_iter().map(|(k,v)| (Key::new(k.into_string()),
                                                            v.into_owned())).collect()),
         }
     }
