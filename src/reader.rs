@@ -175,7 +175,7 @@ impl<T: Buffer> Bufferlike for T {
 }
 
 pub struct Reader<'a> {
-    buf: &'a mut Bufferlike+'a,
+    buf: &'a mut (Bufferlike+'a),
 }
 
 impl<'a> Reader<'a> {

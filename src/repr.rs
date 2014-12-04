@@ -3,11 +3,11 @@
 
 //! An internal representation of CSON data.
 
-use std::{borrow, fmt};
+use std::fmt;
+use std::borrow::Cow;
 use std::str::CowString;
 use std::collections::TreeMap;
-use serialize::json;
-use serialize::json::ToJson;
+use serialize::json::{Json, ToJson};
 
 pub use self::Atom::{Null, True, False, I64, U64, F64, OwnedString, Array, Object};
 
@@ -79,8 +79,8 @@ impl<'a> Str for Key<'a> {
 impl<'a> Clone for Key<'a> {
     fn clone(&self) -> Key<'a> {
         match *self {
-            Key(borrow::Borrowed(s)) => Key(borrow::Borrowed(s)),
-            Key(borrow::Owned(ref s)) => Key(borrow::Owned(s.clone())),
+            Key(Cow::Borrowed(s)) => Key(Cow::Borrowed(s)),
+            Key(Cow::Owned(ref s)) => Key(Cow::Owned(s.clone())),
         }
     }
 }
@@ -97,19 +97,19 @@ impl<'a> Atom<'a> {
         Atom::from_owned_json(jsonlike.to_json())
     }
 
-    pub fn from_owned_json(json: json::Json) -> Atom<'a> {
+    pub fn from_owned_json(json: Json) -> Atom<'a> {
         match json {
-            json::I64(v) => I64(v),
-            json::U64(v) => U64(v),
-            json::F64(v) => F64(v),
-            json::String(s) => OwnedString(s),
-            json::Boolean(true) => True,
-            json::Boolean(false) => False,
-            json::Array(l) => Array(l.into_iter().map(Atom::from_owned_json).collect()),
-            json::Object(o) =>
+            Json::I64(v) => I64(v),
+            Json::U64(v) => U64(v),
+            Json::F64(v) => F64(v),
+            Json::String(s) => OwnedString(s),
+            Json::Boolean(true) => True,
+            Json::Boolean(false) => False,
+            Json::Array(l) => Array(l.into_iter().map(Atom::from_owned_json).collect()),
+            Json::Object(o) =>
                 Object(o.into_iter().map(|(k,v)| (Key::new(k),
                                                   Atom::from_owned_json(v))).collect()),
-            json::Null => Null,
+            Json::Null => Null,
         }
     }
 
@@ -144,17 +144,17 @@ impl<'a> Atom<'a> {
 }
 
 impl<'a> ToJson for Atom<'a> {
-    fn to_json(&self) -> json::Json {
+    fn to_json(&self) -> Json {
         match *self {
-            Null => json::Null,
-            True => json::Boolean(true),
-            False => json::Boolean(false),
-            I64(v) => json::I64(v),
-            U64(v) => json::U64(v),
-            F64(v) => json::F64(v),
-            OwnedString(ref s) => json::String(s.clone()),
-            Array(ref l) => json::Array(l.iter().map(|e| e.to_json()).collect()),
-            Object(ref o) => json::Object(o.iter().map(|(k,v)| (k.to_string(),
+            Null => Json::Null,
+            True => Json::Boolean(true),
+            False => Json::Boolean(false),
+            I64(v) => Json::I64(v),
+            U64(v) => Json::U64(v),
+            F64(v) => Json::F64(v),
+            OwnedString(ref s) => Json::String(s.clone()),
+            Array(ref l) => Json::Array(l.iter().map(|e| e.to_json()).collect()),
+            Object(ref o) => Json::Object(o.iter().map(|(k,v)| (k.to_string(),
                                                                 v.to_json())).collect()),
         }
     }

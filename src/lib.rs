@@ -17,12 +17,6 @@
  * the SQLite library.
  */
 
-#![crate_name = "cson"]
-#![crate_type = "lib"]
-
-#![comment = "CSON Reference Implementation"]
-#![license = "Public Domain"]
-
 #![feature(macro_rules)]
 
 // XXX temporarily cope with the nightly
