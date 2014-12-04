@@ -17,6 +17,9 @@
  * the SQLite library.
  */
 
+#![crate_name = "cson"]
+#![crate_type = "lib"]
+
 #![feature(macro_rules)]
 
 // XXX temporarily cope with the nightly
