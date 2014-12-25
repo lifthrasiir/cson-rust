@@ -4,7 +4,7 @@
 use std::{char, str, fmt};
 use std::str::{SendStr, CowString};
 use std::io::{BufReader, IoError, IoResult, EndOfFile};
-use std::collections::TreeMap;
+use std::collections::BTreeMap;
 use super::repr;
 use super::repr::Key;
 
@@ -27,45 +27,45 @@ pub type ReaderResult<T> = Result<T, ReaderError>;
 
 fn is_id_start(c: char) -> bool {
     match c {
-        '\u0024' |
-        '\u002D' |
-        '\u0041'...'\u005A' |
-        '\u005F' |
-        '\u0061'...'\u007A' |
-        '\u00AA' |
-        '\u00B5' |
-        '\u00BA' |
-        '\u00C0'...'\u00D6' |
-        '\u00D8'...'\u00F6' |
-        '\u00F8'...'\u02FF' |
-        '\u0370'...'\u037D' |
-        '\u037F'...'\u1FFF' |
-        '\u200C'...'\u200D' |
-        '\u2070'...'\u218F' |
-        '\u2C00'...'\u2FEF' |
-        '\u3001'...'\uD7FF' |
-        '\uF900'...'\uFDCF' |
-        '\uFDF0'...'\uFFFD' |
-        '\U00010000'...'\U000EFFFF' => true,
+        '\u{24}' |
+        '\u{2D}' |
+        '\u{41}'...'\u{5A}' |
+        '\u{5F}' |
+        '\u{61}'...'\u{7A}' |
+        '\u{AA}' |
+        '\u{B5}' |
+        '\u{BA}' |
+        '\u{C0}'...'\u{D6}' |
+        '\u{D8}'...'\u{F6}' |
+        '\u{F8}'...'\u{2FF}' |
+        '\u{370}'...'\u{37D}' |
+        '\u{37F}'...'\u{1FFF}' |
+        '\u{200C}'...'\u{200D}' |
+        '\u{2070}'...'\u{218F}' |
+        '\u{2C00}'...'\u{2FEF}' |
+        '\u{3001}'...'\u{D7FF}' |
+        '\u{F900}'...'\u{FDCF}' |
+        '\u{FDF0}'...'\u{FFFD}' |
+        '\u{10000}'...'\u{EFFFF}' => true,
         _ => false
     }
 }
 
 fn is_id_start_byte(b: u8) -> bool {
     match b {
-        0x24 |       // %x24 /
-        0x2d |       // %x2D /
+        0x24 |        // %x24 /
+        0x2d |        // %x2D /
         0x41...0x5a | // %x41-5A /
-        0x5f |       // %x5F /
+        0x5f |        // %x5F /
         0x61...0x7a | // %x61-7A /
-        0xc2 |       // %xAA / %xB5 / %xBA /
-        0xc3 |       // %xC0-D6 / %xD8-F6 / %xF8-FF /
+        0xc2 |        // %xAA / %xB5 / %xBA /
+        0xc3 |        // %xC0-D6 / %xD8-F6 / %xF8-FF /
         0xc4...0xcb | // %x0100-02FF /
-        0xcd |       // %x0370-037D / %x037F /
+        0xcd |        // %x0370-037D / %x037F /
         0xce...0xe1 | // %x0380-1FFF /
-        0xe2 |       // %x200C-200D / %x2070-218F / %x2C00-2FEF /
+        0xe2 |        // %x200C-200D / %x2070-218F / %x2C00-2FEF /
         0xe3...0xed | // %x3001-D7FF /
-        0xef |       // %xF900-FDCF / %xFDF0-FFFD /
+        0xef |        // %xF900-FDCF / %xFDF0-FFFD /
         0xf0...0xf3   // %x10000-EFFFF
             => true,
         _ => false
@@ -90,28 +90,28 @@ fn test_is_id_start() {
 
 fn is_id_end(c: char) -> bool {
     match c {
-        '\u0024' |
-        '\u002D'...'\u002E' |
-        '\u0030'...'\u0039' |
-        '\u0041'...'\u005A' |
-        '\u005F' |
-        '\u0061'...'\u007A' |
-        '\u00AA' |
-        '\u00B5' |
-        '\u00B7' |
-        '\u00BA' |
-        '\u00C0'...'\u00D6' |
-        '\u00D8'...'\u00F6' |
-        '\u00F8'...'\u037D' |
-        '\u037F'...'\u1FFF' |
-        '\u200C'...'\u200D' |
-        '\u203F'...'\u2040' |
-        '\u2070'...'\u218F' |
-        '\u2C00'...'\u2FEF' |
-        '\u3001'...'\uD7FF' |
-        '\uF900'...'\uFDCF' |
-        '\uFDF0'...'\uFFFD' |
-        '\U00010000'...'\U000EFFFF' => true,
+        '\u{24}' |
+        '\u{2D}'...'\u{2E}' |
+        '\u{30}'...'\u{39}' |
+        '\u{41}'...'\u{5A}' |
+        '\u{5F}' |
+        '\u{61}'...'\u{7A}' |
+        '\u{AA}' |
+        '\u{B5}' |
+        '\u{B7}' |
+        '\u{BA}' |
+        '\u{C0}'...'\u{D6}' |
+        '\u{D8}'...'\u{F6}' |
+        '\u{F8}'...'\u{37D}' |
+        '\u{37F}'...'\u{1FFF}' |
+        '\u{200C}'...'\u{200D}' |
+        '\u{203F}'...'\u{2040}' |
+        '\u{2070}'...'\u{218F}' |
+        '\u{2C00}'...'\u{2FEF}' |
+        '\u{3001}'...'\u{D7FF}' |
+        '\u{F900}'...'\u{FDCF}' |
+        '\u{FDF0}'...'\u{FFFD}' |
+        '\u{10000}'...'\u{EFFFF}' => true,
         _ => false
     }
 }
@@ -414,7 +414,7 @@ impl<'a> Reader<'a> {
             Some(b'[') => self.array_no_peek().map(|v| Some(repr::Array(v))),
             Some(b @ b'-') | Some(b @ b'0'...b'9') => self.number_no_peek(b).map(Some),
             Some(quote @ b'"') | Some(quote @ b'\'') =>
-                self.string_no_peek(quote).map(|s| Some(repr::OwnedString(s.into_string()))),
+                self.string_no_peek(quote).map(|s| Some(repr::OwnedString(s.to_string()))),
             Some(b'|') => {
                 let frags = try!(self.verbatim_string_no_peek());
                 let frags_: Vec<&str> = frags.iter().map(|s| s.as_slice()).collect(); // XXX
@@ -455,7 +455,7 @@ impl<'a> Reader<'a> {
     /// newline = *(%x20 / %x09) newline-char
     /// ~~~~
     fn object_items_opt(&mut self) -> ReaderResult<repr::AtomObject<'static>> {
-        let mut items = TreeMap::new();
+        let mut items = BTreeMap::new();
         let (firstkey, firstvalue) = match try!(self.member_opt()) {
             Some(member) => member,
             None => { return Ok(items); }
@@ -651,12 +651,12 @@ impl<'a> Reader<'a> {
         let s = str::from_utf8(bytes[]).unwrap();
         if try_integral {
             // try to return as `I64` if possible
-            match from_str::<i64>(s) {
+            match s.parse::<i64>() {
                 Some(v) if (-1<<53) < v && v < (1<<53) => { return Ok(repr::I64(v)); }
                 _ => {}
             }
         }
-        Ok(repr::F64(from_str::<f64>(s).unwrap()))
+        Ok(repr::F64(s.parse::<f64>().unwrap()))
     }
 
     /// Given a known lookahead, parses `string` where:
@@ -861,26 +861,26 @@ mod tests {
     use repr;
     use repr::{Null, True, False, I64, F64};
 
-    macro_rules! valid(
+    macro_rules! valid {
         ($buf:expr, $repr:expr) => ({
             let parsed = Reader::parse_value_from_buf($buf.as_bytes());
             let expected = Ok($repr);
             assert_eq!(parsed, expected);
         })
-    )
+    }
 
-    macro_rules! invalid(
+    macro_rules! invalid {
         ($buf:expr) => ({
             let parsed = Reader::parse_value_from_buf($buf.as_bytes());
             assert!(parsed.is_err());
         })
-    )
+    }
 
     #[allow(non_snake_case)] // make it look like a constructor
     fn String<'a>(s: &'a str) -> repr::Atom<'a> { repr::OwnedString(s.to_string()) }
-    macro_rules! array([$($e:expr),*] => (repr::Array(vec![$($e),*])))
-    macro_rules! object([$($k:expr => $v:expr),*] =>
-                        (repr::Object(vec![$((repr::Key::new($k), $v)),*].into_iter().collect())))
+    macro_rules! array { [$($e:expr),*] => (repr::Array(vec![$($e),*])) }
+    macro_rules! object { [$($k:expr => $v:expr),*] =>
+        (repr::Object(vec![$((repr::Key::new($k), $v)),*].into_iter().collect())) }
 
     #[test]
     fn test_simple() {

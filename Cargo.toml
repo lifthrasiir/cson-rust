@@ -1,11 +1,11 @@
 [package]
 name = "cson"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Kang Seonghoon <public+rust@mearie.org>"]
 
 description = "Reference implementation of Cursive Script Object Notation (CSON), a superset of JSON suitable for manual editing"
 homepage = "https://github.com/lifthrasiir/cson-rust"
-documentation = "https://lifthrasiir.github.io/cson-rust/cson/"
+documentation = "https://lifthrasiir.github.io/cson-rust/"
 repository = "https://github.com/lifthrasiir/cson-rust"
 readme = "README.md"
 license = "CC0-1.0"

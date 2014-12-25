@@ -20,11 +20,7 @@
 #![crate_name = "cson"]
 #![crate_type = "lib"]
 
-#![feature(macro_rules)]
-
-// XXX temporarily cope with the nightly
-#![allow(unknown_features)]
-#![feature(slicing_syntax)]
+#![feature(macro_rules, slicing_syntax)]
 
 extern crate serialize;
 

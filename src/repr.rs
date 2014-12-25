@@ -6,7 +6,7 @@
 use std::fmt;
 use std::borrow::Cow;
 use std::str::CowString;
-use std::collections::TreeMap;
+use std::collections::BTreeMap;
 use serialize::json::{Json, ToJson};
 
 pub use self::Atom::{Null, True, False, I64, U64, F64, OwnedString, Array, Object};
@@ -21,7 +21,7 @@ impl<'a> Slice<'a> {
 }
 
 impl<'a> Str for Slice<'a> {
-    fn as_slice<'a>(&'a self) -> &'a str {
+    fn as_slice<'b>(&'b self) -> &'b str {
         let Slice(slice) = *self;
         slice
     }
@@ -90,7 +90,7 @@ impl<'a> fmt::Show for Key<'a> {
 }
 
 pub type AtomArray<'a> = Vec<Atom<'a>>;
-pub type AtomObject<'a> = TreeMap<Key<'a>, Atom<'a>>;
+pub type AtomObject<'a> = BTreeMap<Key<'a>, Atom<'a>>;
 
 impl<'a> Atom<'a> {
     pub fn from_json<T: ToJson>(jsonlike: &T) -> Atom<'a> {
@@ -137,7 +137,7 @@ impl<'a> Atom<'a> {
             F64(v) => F64(v),
             OwnedString(s) => OwnedString(s),
             Array(l) => Array(l.into_iter().map(|e| e.into_owned()).collect()),
-            Object(o) => Object(o.into_iter().map(|(k,v)| (Key::new(k.into_string()),
+            Object(o) => Object(o.into_iter().map(|(k,v)| (Key::new(k.to_string()),
                                                            v.into_owned())).collect()),
         }
     }
