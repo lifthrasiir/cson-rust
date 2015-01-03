@@ -240,7 +240,7 @@ impl<'a> Reader<'a> {
         const MAX_TOKEN_LEN: uint = 8;
         assert!(token.len() <= MAX_TOKEN_LEN);
         let mut scratch = [0u8, ..MAX_TOKEN_LEN];
-        let tokenbuf = scratch[mut ..token.len()];
+        let tokenbuf = scratch.slice_to_mut(token.len());
         try!(into_reader_result(self.buf.read_at_least(token.len(), tokenbuf)));
         if tokenbuf.as_slice() == token { Ok(Some(())) } else { Ok(None) }
     }
