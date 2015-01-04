@@ -20,7 +20,7 @@
 #![crate_name = "cson"]
 #![crate_type = "lib"]
 
-#![feature(macro_rules, slicing_syntax)]
+#![feature(macro_rules, slicing_syntax, associated_types)]
 
 extern crate serialize;
 

@@ -4,14 +4,15 @@
 //! An internal representation of CSON data.
 
 use std::fmt;
-use std::borrow::Cow;
+use std::borrow::{Cow, IntoCow};
+use std::ops::Deref;
 use std::str::CowString;
 use std::collections::BTreeMap;
 use serialize::json::{Json, ToJson};
 
 pub use self::Atom::{Null, True, False, I64, U64, F64, OwnedString, Array, Object};
 
-#[deriving(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Slice<'a>(&'a str);
 
 impl<'a> Slice<'a> {
@@ -27,25 +28,7 @@ impl<'a> Str for Slice<'a> {
     }
 }
 
-// XXX Rust issue #18738, should be fine with #[deriving(PartialOrd)]
-impl<'a> PartialOrd for Slice<'a> {
-    fn partial_cmp(&self, other: &Slice<'a>) -> Option<Ordering> {
-        let Slice(lhs) = *self;
-        let Slice(rhs) = *other;
-        lhs.partial_cmp(rhs)
-    }
-}
-
-// XXX Rust issue #18738, should be fine with #[deriving(Ord)]
-impl<'a> Ord for Slice<'a> {
-    fn cmp(&self, other: &Slice<'a>) -> Ordering {
-        let Slice(lhs) = *self;
-        let Slice(rhs) = *other;
-        lhs.cmp(rhs)
-    }
-}
-
-#[deriving(PartialEq, Show, Clone)]
+#[derive(PartialEq, Show, Clone)]
 pub enum Atom<'a> {
     Null,
     True,
@@ -61,14 +44,15 @@ pub enum Atom<'a> {
     Object(AtomObject<'a>),
 }
 
-#[deriving(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct Key<'a>(pub CowString<'a>);
 
 impl<'a> Key<'a> {
     pub fn new<T:IntoCow<'a,String,str>>(s: T) -> Key<'a> { Key(s.into_cow()) }
 }
 
-impl<'a> Deref<str> for Key<'a> {
+impl<'a> Deref for Key<'a> {
+    type Target = str;
     fn deref<'b>(&'b self) -> &'b str { let Key(ref s) = *self; s.deref() }
 }
 

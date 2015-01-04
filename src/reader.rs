@@ -2,13 +2,14 @@
 // Written by Kang Seonghoon. See README.md for details.
 
 use std::{char, str, fmt};
+use std::borrow::IntoCow;
 use std::str::{SendStr, CowString};
 use std::io::{BufReader, IoError, IoResult, EndOfFile};
 use std::collections::BTreeMap;
 use super::repr;
 use super::repr::Key;
 
-#[deriving(PartialEq)]
+#[derive(PartialEq)]
 pub struct ReaderError {
     pub cause: SendStr,
     pub ioerr: Option<IoError>,
@@ -74,10 +75,10 @@ fn is_id_start_byte(b: u8) -> bool {
 
 #[test]
 fn test_is_id_start() {
-    let mut present = [false, ..256];
+    let mut present = [false; 256];
     for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_start(c)) {
         assert!(is_id_end(c), "is_id_end('{}' /*{:x}*/) is false", c, c as u32);
-        let mut buf = [0u8, ..4];
+        let mut buf = [0u8; 4];
         c.encode_utf8(buf.as_mut_slice());
         present[buf[0] as uint] = true;
     }
@@ -138,9 +139,9 @@ fn is_id_end_byte(b: u8) -> bool {
 
 #[test]
 fn test_is_id_end() {
-    let mut present = [false, ..256];
+    let mut present = [false; 256];
     for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_end(c)) {
-        let mut buf = [0u8, ..4];
+        let mut buf = [0u8; 4];
         c.encode_utf8(buf.as_mut_slice());
         present[buf[0] as uint] = true;
     }
@@ -239,7 +240,7 @@ impl<'a> Reader<'a> {
     fn fixed_token_opt(&mut self, token: &[u8]) -> ReaderResult<Option<()>> {
         const MAX_TOKEN_LEN: uint = 8;
         assert!(token.len() <= MAX_TOKEN_LEN);
-        let mut scratch = [0u8, ..MAX_TOKEN_LEN];
+        let mut scratch = [0u8; MAX_TOKEN_LEN];
         let tokenbuf = scratch.slice_to_mut(token.len());
         try!(into_reader_result(self.buf.read_at_least(token.len(), tokenbuf)));
         if tokenbuf.as_slice() == token { Ok(Some(())) } else { Ok(None) }
@@ -720,7 +721,7 @@ impl<'a> Reader<'a> {
                                                        with an escaped upper surrogate \
                                                        (got `\\u{:04x}` instead)", first, second));
                         }
-                        0x10000 + (((first - 0xd800) as u32 << 10) | ((second - 0xdc00) as u32))
+                        0x10000 + ((((first - 0xd800) as u32) << 10) | ((second - 0xdc00) as u32))
                     },
                     second @ 0xdc00...0xdfff => {
                         // upper surrogate, not allowed
@@ -733,7 +734,7 @@ impl<'a> Reader<'a> {
                 // append a converted UTF-8 sequence into `bytes`.
                 // this wouldn't affect the validness of other raw `bytes` as UTF-8 ensures that
                 // no valid sequence can made into invalid one or vice versa.
-                let mut charbuf = [0u8, ..4];
+                let mut charbuf = [0u8; 4];
                 let charbuflen =
                     char::from_u32(ch).unwrap().encode_utf8(charbuf.as_mut_slice()).unwrap();
                 bytes.extend(charbuf[..charbuflen].iter().map(|&b| b));
