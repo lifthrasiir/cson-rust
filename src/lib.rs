@@ -22,7 +22,7 @@
 
 #![feature(macro_rules, slicing_syntax, associated_types)]
 
-extern crate serialize;
+extern crate "rustc-serialize" as serialize;
 
 pub mod repr;
 pub mod reader;

@@ -246,7 +246,8 @@ impl<'a> Reader<'a> {
         if tokenbuf.as_slice() == token { Ok(Some(())) } else { Ok(None) }
     }
 
-    fn loop_with_buffer(&mut self, callback: |&[u8]| -> Option<uint>) -> ReaderResult<bool> {
+    fn loop_with_buffer<F>(&mut self, mut callback: F) -> ReaderResult<bool>
+            where F: for<'b> FnMut(&'b [u8]) -> Option<uint> {
         let mut used;
         loop {
             {
@@ -780,7 +781,7 @@ impl<'a> Reader<'a> {
             Some(b'r') => Ok(0x0d),
             Some(b't') => Ok(0x09),
             Some(b'u') => {
-                let read_hex_digit = || {
+                let mut read_hex_digit = |&mut:| {
                     match try!(into_reader_result(self.buf.read_byte())) {
                         Some(b @ b'0'...b'9') => Ok((b - b'0') as u16 + 0),
                         Some(b @ b'a'...b'f') => Ok((b - b'a') as u16 + 10),
