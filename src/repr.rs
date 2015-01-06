@@ -6,7 +6,7 @@
 use std::fmt;
 use std::borrow::{Cow, IntoCow};
 use std::ops::Deref;
-use std::str::CowString;
+use std::string::CowString;
 use std::collections::BTreeMap;
 use serialize::json::{Json, ToJson};
 

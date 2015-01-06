@@ -1,6 +1,6 @@
 [package]
 name = "cson"
-version = "0.1.6"
+version = "0.1.7"
 authors = ["Kang Seonghoon <public+rust@mearie.org>"]
 
 description = "Reference implementation of Cursive Script Object Notation (CSON), a superset of JSON suitable for manual editing"

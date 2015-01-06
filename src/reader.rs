@@ -3,7 +3,7 @@
 
 use std::{char, str, fmt};
 use std::borrow::IntoCow;
-use std::str::{SendStr, CowString};
+use std::string::CowString;
 use std::io::{BufReader, IoError, IoResult, EndOfFile};
 use std::collections::BTreeMap;
 use super::repr;
@@ -11,7 +11,7 @@ use super::repr::Key;
 
 #[derive(PartialEq)]
 pub struct ReaderError {
-    pub cause: SendStr,
+    pub cause: CowString<'static>,
     pub ioerr: Option<IoError>,
 }
 
