@@ -20,7 +20,7 @@
 #![crate_name = "cson"]
 #![crate_type = "lib"]
 
-#![feature(macro_rules, slicing_syntax, associated_types)]
+#![feature(slicing_syntax)]
 
 extern crate "rustc-serialize" as serialize;
 
