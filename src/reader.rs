@@ -80,9 +80,9 @@ fn test_is_id_start() {
         assert!(is_id_end(c), "is_id_end('{}' /*{:x}*/) is false", c, c as u32);
         let mut buf = [0u8; 4];
         c.encode_utf8(buf.as_mut_slice());
-        present[buf[0] as uint] = true;
+        present[buf[0] as usize] = true;
     }
-    for b in range(0u, 256) {
+    for b in range(0us, 256) {
         assert!(is_id_start_byte(b as u8) == present[b],
                 "is_id_start_byte({}): expected {}, get {}",
                 b, is_id_start_byte(b as u8), present[b]);
@@ -143,9 +143,9 @@ fn test_is_id_end() {
     for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_end(c)) {
         let mut buf = [0u8; 4];
         c.encode_utf8(buf.as_mut_slice());
-        present[buf[0] as uint] = true;
+        present[buf[0] as usize] = true;
     }
-    for b in range(0u, 256) {
+    for b in range(0us, 256) {
         assert!(is_id_end_byte(b as u8) == present[b],
                 "is_id_end_byte({}): expected {}, get {}",
                 b, is_id_end_byte(b as u8), present[b]);
@@ -168,7 +168,7 @@ struct Newline;
 
 // XXX &mut Buffer is invalid (Rust bug #18530)
 trait Bufferlike: Buffer {
-    fn consume_(&mut self, amt: uint) { self.consume(amt); }
+    fn consume_(&mut self, amt: usize) { self.consume(amt); }
     fn fill_buf_(&mut self) -> IoResult<&[u8]> { self.fill_buf() }
 }
 
@@ -238,7 +238,7 @@ impl<'a> Reader<'a> {
     }
 
     fn fixed_token_opt(&mut self, token: &[u8]) -> ReaderResult<Option<()>> {
-        const MAX_TOKEN_LEN: uint = 8;
+        const MAX_TOKEN_LEN: usize = 8;
         assert!(token.len() <= MAX_TOKEN_LEN);
         let mut scratch = [0u8; MAX_TOKEN_LEN];
         let tokenbuf = scratch.slice_to_mut(token.len());
@@ -247,7 +247,7 @@ impl<'a> Reader<'a> {
     }
 
     fn loop_with_buffer<F>(&mut self, mut callback: F) -> ReaderResult<bool>
-            where F: for<'b> FnMut(&'b [u8]) -> Option<uint> {
+            where F: FnMut(&[u8]) -> Option<usize> {
         let mut used;
         loop {
             {
@@ -650,7 +650,7 @@ impl<'a> Reader<'a> {
             _ => {}
         }
 
-        let s = str::from_utf8(bytes[]).unwrap();
+        let s = str::from_utf8(&bytes[]).unwrap();
         if try_integral {
             // try to return as `I64` if possible
             match s.parse::<i64>() {
@@ -684,7 +684,7 @@ impl<'a> Reader<'a> {
     /// squoted-unescaped = %x20-26 / %x28-5B / %x5D-10FFFF
     /// ~~~~
     fn quoted_chars_then_quote(&mut self, quote: u8) -> ReaderResult<CowString<'static>> {
-        let mut bytes = Vec::new();
+        let mut bytes: Vec<u8> = Vec::new();
         loop {
             let mut escaped_follows = false;
             let keepgoing = try!(self.loop_with_buffer(|buf| {

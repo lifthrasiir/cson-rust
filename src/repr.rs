@@ -16,7 +16,7 @@ pub use self::Atom::{Null, True, False, I64, U64, F64, OwnedString, Array, Objec
 pub struct Slice<'a>(&'a str);
 
 impl<'a> Slice<'a> {
-    pub fn new(base: &'a str, start: uint, end: uint) -> Slice<'a> {
+    pub fn new(base: &'a str, start: usize, end: usize) -> Slice<'a> {
         Slice(base.slice(start, end))
     }
 }
