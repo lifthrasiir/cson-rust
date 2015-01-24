@@ -21,7 +21,6 @@
 #![crate_type = "lib"]
 
 #![allow(unstable)]
-#![feature(slicing_syntax)]
 
 extern crate "rustc-serialize" as serialize;
 

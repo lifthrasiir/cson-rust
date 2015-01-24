@@ -17,7 +17,7 @@ pub struct Slice<'a>(&'a str);
 
 impl<'a> Slice<'a> {
     pub fn new(base: &'a str, start: usize, end: usize) -> Slice<'a> {
-        Slice(base.slice(start, end))
+        Slice(&base[start..end])
     }
 }
 
@@ -69,7 +69,7 @@ impl<'a> Clone for Key<'a> {
     }
 }
 
-impl<'a> fmt::Show for Key<'a> {
+impl<'a> fmt::Debug for Key<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { let Key(ref s) = *self; s.fmt(f) }
 }
 

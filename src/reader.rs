@@ -9,13 +9,13 @@ use std::collections::BTreeMap;
 use super::repr;
 use super::repr::Key;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Show)]
 pub struct ReaderError {
     pub cause: CowString<'static>,
     pub ioerr: Option<IoError>,
 }
 
-impl fmt::Show for ReaderError {
+impl fmt::Display for ReaderError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.ioerr {
             Some(ref ioerr) => write!(f, "{} ({})", self.cause, *ioerr),
@@ -241,7 +241,7 @@ impl<'a> Reader<'a> {
         const MAX_TOKEN_LEN: usize = 8;
         assert!(token.len() <= MAX_TOKEN_LEN);
         let mut scratch = [0u8; MAX_TOKEN_LEN];
-        let tokenbuf = scratch.slice_to_mut(token.len());
+        let tokenbuf = &mut scratch[..token.len()];
         try!(into_reader_result(self.buf.read_at_least(token.len(), tokenbuf)));
         if tokenbuf.as_slice() == token { Ok(Some(())) } else { Ok(None) }
     }
