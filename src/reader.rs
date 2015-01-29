@@ -79,7 +79,7 @@ fn test_is_id_start() {
     for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_start(c)) {
         assert!(is_id_end(c), "is_id_end('{}' /*{:x}*/) is false", c, c as u32);
         let mut buf = [0u8; 4];
-        c.encode_utf8(buf.as_mut_slice());
+        c.encode_utf8(&mut buf[]);
         present[buf[0] as usize] = true;
     }
     for b in range(0us, 256) {
@@ -142,7 +142,7 @@ fn test_is_id_end() {
     let mut present = [false; 256];
     for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_end(c)) {
         let mut buf = [0u8; 4];
-        c.encode_utf8(buf.as_mut_slice());
+        c.encode_utf8(&mut buf[]);
         present[buf[0] as usize] = true;
     }
     for b in range(0us, 256) {
@@ -243,7 +243,7 @@ impl<'a> Reader<'a> {
         let mut scratch = [0u8; MAX_TOKEN_LEN];
         let tokenbuf = &mut scratch[..token.len()];
         try!(into_reader_result(self.buf.read_at_least(token.len(), tokenbuf)));
-        if tokenbuf.as_slice() == token { Ok(Some(())) } else { Ok(None) }
+        if tokenbuf == token { Ok(Some(())) } else { Ok(None) }
     }
 
     fn loop_with_buffer<F>(&mut self, mut callback: F) -> ReaderResult<bool>
@@ -419,7 +419,7 @@ impl<'a> Reader<'a> {
                 self.string_no_peek(quote).map(|s| Some(repr::OwnedString(s.to_string()))),
             Some(b'|') => {
                 let frags = try!(self.verbatim_string_no_peek());
-                let frags_: Vec<&str> = frags.iter().map(|s| s.as_slice()).collect(); // XXX
+                let frags_: Vec<&str> = frags.iter().map(|s| &s[]).collect(); // XXX
                 Ok(Some(repr::OwnedString(frags_.connect("\n"))))
             },
             _ => Ok(None),
@@ -737,7 +737,7 @@ impl<'a> Reader<'a> {
                 // no valid sequence can made into invalid one or vice versa.
                 let mut charbuf = [0u8; 4];
                 let charbuflen =
-                    char::from_u32(ch).unwrap().encode_utf8(charbuf.as_mut_slice()).unwrap();
+                    char::from_u32(ch).unwrap().encode_utf8(&mut charbuf[]).unwrap();
                 bytes.extend(charbuf[..charbuflen].iter().map(|&b| b));
             } else {
                 break;
