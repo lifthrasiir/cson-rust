@@ -4,7 +4,7 @@
 use std::{char, str, fmt};
 use std::borrow::IntoCow;
 use std::string::CowString;
-use std::io::{BufReader, IoError, IoResult, EndOfFile};
+use std::old_io::{BufReader, IoError, IoResult, EndOfFile};
 use std::collections::BTreeMap;
 use super::repr;
 use super::repr::Key;
