@@ -28,7 +28,7 @@ impl<'a> Str for Slice<'a> {
     }
 }
 
-#[derive(PartialEq, Show, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Atom<'a> {
     Null,
     True,

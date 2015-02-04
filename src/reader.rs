@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use super::repr;
 use super::repr::Key;
 
-#[derive(PartialEq, Show)]
+#[derive(PartialEq, Debug)]
 pub struct ReaderError {
     pub cause: CowString<'static>,
     pub ioerr: Option<IoError>,
@@ -654,7 +654,7 @@ impl<'a> Reader<'a> {
         if try_integral {
             // try to return as `I64` if possible
             match s.parse::<i64>() {
-                Some(v) if (-1<<53) < v && v < (1<<53) => { return Ok(repr::I64(v)); }
+                Ok(v) if (-1<<53) < v && v < (1<<53) => { return Ok(repr::I64(v)); }
                 _ => {}
             }
         }

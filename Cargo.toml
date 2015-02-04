@@ -1,6 +1,6 @@
 [package]
 name = "cson"
-version = "0.1.13"
+version = "0.1.14"
 authors = ["Kang Seonghoon <public+rust@mearie.org>"]
 
 description = "Reference implementation of Cursive Script Object Notation (CSON), a superset of JSON suitable for manual editing"
@@ -14,4 +14,4 @@ license = "CC0-1.0"
 name = "cson"
 
 [dependencies]
-rustc-serialize = "0.2.10"
+rustc-serialize = "0.2.11"
