@@ -781,7 +781,7 @@ impl<'a> Reader<'a> {
             Some(b'r') => Ok(0x0d),
             Some(b't') => Ok(0x09),
             Some(b'u') => {
-                let mut read_hex_digit = |&mut:| {
+                let mut read_hex_digit = || {
                     match try!(into_reader_result(self.buf.read_byte())) {
                         Some(b @ b'0'...b'9') => Ok((b - b'0') as u16 + 0),
                         Some(b @ b'a'...b'f') => Ok((b - b'a') as u16 + 10),
