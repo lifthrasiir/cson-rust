@@ -2,8 +2,7 @@
 // Written by Kang Seonghoon. See README.md for details.
 
 use std::{char, str, fmt};
-use std::borrow::IntoCow;
-use std::string::CowString;
+use std::borrow::{Cow, IntoCow};
 use std::old_io::{BufReader, IoError, IoResult, EndOfFile};
 use std::collections::BTreeMap;
 use super::repr;
@@ -11,7 +10,7 @@ use super::repr::Key;
 
 #[derive(PartialEq, Debug)]
 pub struct ReaderError {
-    pub cause: CowString<'static>,
+    pub cause: Cow<'static, str>,
     pub ioerr: Option<IoError>,
 }
 
@@ -79,10 +78,10 @@ fn test_is_id_start() {
     for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_start(c)) {
         assert!(is_id_end(c), "is_id_end('{}' /*{:x}*/) is false", c, c as u32);
         let mut buf = [0u8; 4];
-        c.encode_utf8(&mut buf[]);
+        c.encode_utf8(&mut buf);
         present[buf[0] as usize] = true;
     }
-    for b in range(0us, 256) {
+    for b in range(0usize, 256) {
         assert!(is_id_start_byte(b as u8) == present[b],
                 "is_id_start_byte({}): expected {}, get {}",
                 b, is_id_start_byte(b as u8), present[b]);
@@ -142,10 +141,10 @@ fn test_is_id_end() {
     let mut present = [false; 256];
     for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_end(c)) {
         let mut buf = [0u8; 4];
-        c.encode_utf8(&mut buf[]);
+        c.encode_utf8(&mut buf);
         present[buf[0] as usize] = true;
     }
-    for b in range(0us, 256) {
+    for b in range(0usize, 256) {
         assert!(is_id_end_byte(b as u8) == present[b],
                 "is_id_end_byte({}): expected {}, get {}",
                 b, is_id_end_byte(b as u8), present[b]);
@@ -160,23 +159,14 @@ fn into_reader_result<T>(res: IoResult<T>) -> ReaderResult<Option<T>> {
     }
 }
 
-fn reader_err<T, Cause:IntoCow<'static,String,str>>(cause: Cause) -> ReaderResult<T> {
+fn reader_err<T, Cause: IntoCow<'static, str>>(cause: Cause) -> ReaderResult<T> {
     Err(ReaderError { cause: cause.into_cow(), ioerr: None })
 }
 
 struct Newline;
 
-// XXX &mut Buffer is invalid (Rust bug #18530)
-trait Bufferlike: Buffer {
-    fn consume_(&mut self, amt: usize) { self.consume(amt); }
-    fn fill_buf_(&mut self) -> IoResult<&[u8]> { self.fill_buf() }
-}
-
-impl<T: Buffer> Bufferlike for T {
-}
-
 pub struct Reader<'a> {
-    buf: &'a mut (Bufferlike+'a),
+    buf: &'a mut (Buffer + 'a),
 }
 
 impl<'a> Reader<'a> {
@@ -419,7 +409,7 @@ impl<'a> Reader<'a> {
                 self.string_no_peek(quote).map(|s| Some(repr::OwnedString(s.to_string()))),
             Some(b'|') => {
                 let frags = try!(self.verbatim_string_no_peek());
-                let frags_: Vec<&str> = frags.iter().map(|s| &s[]).collect(); // XXX
+                let frags_: Vec<&str> = frags.iter().map(|s| &s[..]).collect(); // XXX
                 Ok(Some(repr::OwnedString(frags_.connect("\n"))))
             },
             _ => Ok(None),
@@ -507,7 +497,7 @@ impl<'a> Reader<'a> {
     ///          / %x3001-D7FF / %xF900-FDCF / %xFDF0-FFFD / %x10000-EFFFF
     /// id-end = id-start / %x2E / %x30-39 / %xB7 / %x0300-036F / %x203F-2040
     /// ~~~~
-    fn name_opt(&mut self) -> ReaderResult<Option<CowString<'static>>> {
+    fn name_opt(&mut self) -> ReaderResult<Option<Cow<'static, str>>> {
         match try!(self.peek()) {
             Some(quote @ b'"') | Some(quote @ b'\'') =>
                 self.string_no_peek(quote).map(|s| Some(s.into_cow())),
@@ -650,7 +640,7 @@ impl<'a> Reader<'a> {
             _ => {}
         }
 
-        let s = str::from_utf8(&bytes[]).unwrap();
+        let s = str::from_utf8(&bytes).unwrap();
         if try_integral {
             // try to return as `I64` if possible
             match s.parse::<i64>() {
@@ -667,7 +657,7 @@ impl<'a> Reader<'a> {
     /// string = quotation-mark *dquoted-char quotation-mark
     ///        / apostrophe-mark *squoted-char apostrophe-mark
     /// ~~~~
-    fn string_no_peek(&mut self, quote: u8) -> ReaderResult<CowString<'static>> {
+    fn string_no_peek(&mut self, quote: u8) -> ReaderResult<Cow<'static, str>> {
         self.buf.consume(1);
         self.quoted_chars_then_quote(quote)
     }
@@ -683,7 +673,7 @@ impl<'a> Reader<'a> {
     /// dquoted-unescaped = %x20-21 / %x23-5B / %x5D-10FFFF
     /// squoted-unescaped = %x20-26 / %x28-5B / %x5D-10FFFF
     /// ~~~~
-    fn quoted_chars_then_quote(&mut self, quote: u8) -> ReaderResult<CowString<'static>> {
+    fn quoted_chars_then_quote(&mut self, quote: u8) -> ReaderResult<Cow<'static, str>> {
         let mut bytes: Vec<u8> = Vec::new();
         loop {
             let mut escaped_follows = false;
@@ -736,8 +726,7 @@ impl<'a> Reader<'a> {
                 // this wouldn't affect the validness of other raw `bytes` as UTF-8 ensures that
                 // no valid sequence can made into invalid one or vice versa.
                 let mut charbuf = [0u8; 4];
-                let charbuflen =
-                    char::from_u32(ch).unwrap().encode_utf8(&mut charbuf[]).unwrap();
+                let charbuflen = char::from_u32(ch).unwrap().encode_utf8(&mut charbuf).unwrap();
                 bytes.extend(charbuf[..charbuflen].iter().map(|&b| b));
             } else {
                 break;
@@ -808,7 +797,7 @@ impl<'a> Reader<'a> {
     /// verbatim-fragment = pipe *verbatim-char
     /// pipe = %x7C                     ; |
     /// ~~~~
-    fn verbatim_string_no_peek(&mut self) -> ReaderResult<Vec<CowString<'static>>> {
+    fn verbatim_string_no_peek(&mut self) -> ReaderResult<Vec<Cow<'static, str>>> {
         assert_eq!(self.peek(), Ok(Some(b'|')));
 
         let mut frags = Vec::new();
@@ -836,7 +825,7 @@ impl<'a> Reader<'a> {
     ///          / %x3001-D7FF / %xF900-FDCF / %xFDF0-FFFD / %x10000-EFFFF
     /// id-end = id-start / %x2E / %x30-39 / %xB7 / %x0300-036F / %x203F-2040
     /// ~~~~
-    fn bare_string_no_peek(&mut self) -> ReaderResult<CowString<'static>> {
+    fn bare_string_no_peek(&mut self) -> ReaderResult<Cow<'static, str>> {
         assert!(self.peek().ok().and_then(|c| c).map_or(false, is_id_start_byte));
 
         let mut s = String::new();

@@ -6,7 +6,6 @@
 use std::fmt;
 use std::borrow::{Cow, IntoCow};
 use std::ops::Deref;
-use std::string::CowString;
 use std::collections::BTreeMap;
 use serialize::json::{Json, ToJson};
 
@@ -45,10 +44,10 @@ pub enum Atom<'a> {
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
-pub struct Key<'a>(pub CowString<'a>);
+pub struct Key<'a>(pub Cow<'a, str>);
 
 impl<'a> Key<'a> {
-    pub fn new<T:IntoCow<'a,String,str>>(s: T) -> Key<'a> { Key(s.into_cow()) }
+    pub fn new<T: IntoCow<'a, str>>(s: T) -> Key<'a> { Key(s.into_cow()) }
 }
 
 impl<'a> Deref for Key<'a> {
