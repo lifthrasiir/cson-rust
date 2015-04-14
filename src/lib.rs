@@ -22,7 +22,7 @@
 
 #![feature(core, old_io, unicode)] // lib stability features as per RFC #507
 
-extern crate "rustc-serialize" as serialize;
+extern crate rustc_serialize as serialize;
 
 pub mod repr;
 pub mod reader;
