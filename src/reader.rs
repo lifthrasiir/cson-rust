@@ -2,7 +2,7 @@
 // Written by Kang Seonghoon. See README.md for details.
 
 use std::{char, str, fmt};
-use std::borrow::{Cow, IntoCow};
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::io;
 use std::io::{BufRead, BufReader};
@@ -158,8 +158,8 @@ fn test_is_id_end() {
     }
 }
 
-fn reader_err<T, Cause: IntoCow<'static, str>>(cause: Cause) -> ReaderResult<T> {
-    Err(ReaderError { cause: cause.into_cow(), ioerr: None })
+fn reader_err<T, Cause: Into<Cow<'static, str>>>(cause: Cause) -> ReaderResult<T> {
+    Err(ReaderError { cause: cause.into(), ioerr: None })
 }
 
 struct Newline;
@@ -492,7 +492,7 @@ impl<'a> Reader<'a> {
     fn name_opt(&mut self) -> ReaderResult<Option<Cow<'static, str>>> {
         match try!(self.peek()) {
             Some(quote @ b'"') | Some(quote @ b'\'') =>
-                self.string_no_peek(quote).map(|s| Some(s.into_cow())),
+                self.string_no_peek(quote).map(|s| Some(s.into())),
             Some(b) if is_id_start_byte(b) => self.bare_string_no_peek().map(Some),
             _ => Ok(None),
         }
@@ -726,7 +726,7 @@ impl<'a> Reader<'a> {
         }
 
         match String::from_utf8(bytes) {
-            Ok(s) => Ok(s.into_cow()),
+            Ok(s) => Ok(s.into()),
             Err(_) => reader_err("invalid UTF-8 sequence in a quoted string"),
         }
     }
@@ -796,7 +796,7 @@ impl<'a> Reader<'a> {
         loop {
             self.buf.consume(1);
             match String::from_utf8(try!(self.non_newline_chars())) {
-                Ok(bytes) => { frags.push(bytes.into_cow()); }
+                Ok(bytes) => { frags.push(bytes.into()); }
                 Err(_) => { return reader_err("invalid UTF-8 sequence in a verbatim string"); }
             }
             self.buf.consume(1); // either 0x0a or 0x0d
@@ -834,7 +834,7 @@ impl<'a> Reader<'a> {
                 None    => { return reader_err("expected a bare string, got the end of file"); }
             };
         }
-        Ok(s.into_cow())
+        Ok(s.into())
     }
 }
 

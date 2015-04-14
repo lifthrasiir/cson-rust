@@ -4,7 +4,7 @@
 //! An internal representation of CSON data.
 
 use std::fmt;
-use std::borrow::{Cow, IntoCow};
+use std::borrow::Cow;
 use std::ops::Deref;
 use std::collections::BTreeMap;
 use serialize::json::{Json, ToJson};
@@ -20,8 +20,8 @@ impl<'a> Slice<'a> {
     }
 }
 
-impl<'a> Str for Slice<'a> {
-    fn as_slice<'b>(&'b self) -> &'b str {
+impl<'a> AsRef<str> for Slice<'a> {
+    fn as_ref<'b>(&'b self) -> &'b str {
         let Slice(slice) = *self;
         slice
     }
@@ -47,7 +47,7 @@ pub enum Atom<'a> {
 pub struct Key<'a>(pub Cow<'a, str>);
 
 impl<'a> Key<'a> {
-    pub fn new<T: IntoCow<'a, str>>(s: T) -> Key<'a> { Key(s.into_cow()) }
+    pub fn new<T: Into<Cow<'a, str>>>(s: T) -> Key<'a> { Key(s.into()) }
 }
 
 impl<'a> Deref for Key<'a> {
@@ -55,8 +55,8 @@ impl<'a> Deref for Key<'a> {
     fn deref<'b>(&'b self) -> &'b str { let Key(ref s) = *self; s.deref() }
 }
 
-impl<'a> Str for Key<'a> {
-    fn as_slice<'b>(&'b self) -> &'b str { let Key(ref s) = *self; s.as_slice() }
+impl<'a> AsRef<str> for Key<'a> {
+    fn as_ref<'b>(&'b self) -> &'b str { let Key(ref s) = *self; s.as_ref() }
 }
 
 impl<'a> Clone for Key<'a> {
