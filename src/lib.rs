@@ -20,11 +20,10 @@
 #![crate_name = "cson"]
 #![crate_type = "lib"]
 
-#![feature(core, unicode)] // lib stability features as per RFC #507
-
 extern crate rustc_serialize as serialize;
 
 pub mod repr;
 pub mod reader;
 //mod writer;
 
+mod util;

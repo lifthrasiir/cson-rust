@@ -1,13 +1,16 @@
 // This is a part of CSON-rust.
 // Written by Kang Seonghoon. See README.md for details.
 
-use std::{char, str, fmt};
+use std::{str, fmt};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::io;
 use std::io::{BufRead, BufReader};
 use super::repr;
 use super::repr::Key;
+use super::util;
+
+#[cfg(test)] use std::char;
 
 #[derive(Debug)]
 pub struct ReaderError {
@@ -85,7 +88,7 @@ fn test_is_id_start() {
     for c in (0u32..0x110000).filter_map(char::from_u32).filter(|&c| is_id_start(c)) {
         assert!(is_id_end(c), "is_id_end('{}' /*{:x}*/) is false", c, c as u32);
         let mut buf = [0u8; 4];
-        c.encode_utf8(&mut buf);
+        util::char::encode_utf8_raw(c as u32, &mut buf);
         present[buf[0] as usize] = true;
     }
     for b in 0usize..256 {
@@ -148,7 +151,7 @@ fn test_is_id_end() {
     let mut present = [false; 256];
     for c in (0u32..0x110000).filter_map(char::from_u32).filter(|&c| is_id_end(c)) {
         let mut buf = [0u8; 4];
-        c.encode_utf8(&mut buf);
+        util::char::encode_utf8_raw(c as u32, &mut buf);
         present[buf[0] as usize] = true;
     }
     for b in 0usize..256 {
@@ -219,8 +222,10 @@ impl<'a> Reader<'a> {
         assert!(token.len() <= MAX_TOKEN_LEN);
         let mut scratch = [0u8; MAX_TOKEN_LEN];
         let tokenbuf = &mut scratch[..token.len()];
-        try!(self.buf.read_at_least(token.len(), tokenbuf));
-        if tokenbuf == token { Ok(Some(())) } else { Ok(None) }
+        match try!(util::io::read_at_least(&mut self.buf, token.len(), tokenbuf)) {
+            util::io::ReadBytes::Enough(_) if tokenbuf == token => Ok(Some(())),
+            _ => Ok(None),
+        }
     }
 
     fn loop_with_buffer<F>(&mut self, mut callback: F) -> ReaderResult<bool>
@@ -232,7 +237,7 @@ impl<'a> Reader<'a> {
                 let buf = try!(self.buf.fill_buf());
                 if buf.len() <= 0 {
                     zeroes += 1;
-                    if zeroes >= 1000 {
+                    if zeroes >= util::io::NO_PROGRESS_LIMIT {
                         return Ok(false);
                     }
                     continue;
@@ -718,7 +723,7 @@ impl<'a> Reader<'a> {
                 // this wouldn't affect the validness of other raw `bytes` as UTF-8 ensures that
                 // no valid sequence can made into invalid one or vice versa.
                 let mut charbuf = [0u8; 4];
-                let charbuflen = char::from_u32(ch).unwrap().encode_utf8(&mut charbuf).unwrap();
+                let charbuflen = util::char::encode_utf8_raw(ch, &mut charbuf).unwrap();
                 bytes.extend(charbuf[..charbuflen].iter().map(|&b| b));
             } else {
                 break;
@@ -751,7 +756,7 @@ impl<'a> Reader<'a> {
     /// Returns an `u16` instead of a `char` since it may return an incomplete surrogate.
     /// The caller is expected to deal with such cases.
     fn escaped_minus_escape(&mut self) -> ReaderResult<u16> {
-        match try!(self.buf.read_byte()) {
+        match try!(util::io::read_byte(&mut self.buf)) {
             Some(b'\'') => Ok(0x27),
             Some(b'"') => Ok(0x22),
             Some(b'\\') => Ok(0x5c),
@@ -763,7 +768,7 @@ impl<'a> Reader<'a> {
             Some(b't') => Ok(0x09),
             Some(b'u') => {
                 let mut read_hex_digit = || {
-                    match try!(self.buf.read_byte()) {
+                    match try!(util::io::read_byte(&mut self.buf)) {
                         Some(b @ b'0'...b'9') => Ok((b - b'0') as u16 + 0),
                         Some(b @ b'a'...b'f') => Ok((b - b'a') as u16 + 10),
                         Some(b @ b'A'...b'F') => Ok((b - b'A') as u16 + 10),
@@ -821,13 +826,13 @@ impl<'a> Reader<'a> {
         assert!(self.peek().ok().and_then(|c| c).map_or(false, is_id_start_byte));
 
         let mut s = String::new();
-        match try!(self.buf.read_char()) {
+        match try!(util::io::read_char(&mut self.buf)) {
             Some(ch) if is_id_start(ch) => { s.push(ch); }
             Some(_) => { return reader_err("expected a bare string, got an invalid character"); }
             None    => { return reader_err("expected a bare string, got the end of file"); }
         };
         while try!(self.peek()).map_or(false, is_id_end_byte) {
-            match try!(self.buf.read_char()) {
+            match try!(util::io::read_char(&mut self.buf)) {
                 Some(ch) if is_id_end(ch) => { s.push(ch); }
                 Some(_) => { return reader_err("expected a bare string, got an invalid \
                                                 character"); }
