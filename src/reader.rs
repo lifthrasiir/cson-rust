@@ -82,13 +82,13 @@ fn is_id_start_byte(b: u8) -> bool {
 #[test]
 fn test_is_id_start() {
     let mut present = [false; 256];
-    for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_start(c)) {
+    for c in (0u32..0x110000).filter_map(char::from_u32).filter(|&c| is_id_start(c)) {
         assert!(is_id_end(c), "is_id_end('{}' /*{:x}*/) is false", c, c as u32);
         let mut buf = [0u8; 4];
         c.encode_utf8(&mut buf);
         present[buf[0] as usize] = true;
     }
-    for b in range(0usize, 256) {
+    for b in 0usize..256 {
         assert!(is_id_start_byte(b as u8) == present[b],
                 "is_id_start_byte({}): expected {}, get {}",
                 b, is_id_start_byte(b as u8), present[b]);
@@ -146,12 +146,12 @@ fn is_id_end_byte(b: u8) -> bool {
 #[test]
 fn test_is_id_end() {
     let mut present = [false; 256];
-    for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_end(c)) {
+    for c in (0u32..0x110000).filter_map(char::from_u32).filter(|&c| is_id_end(c)) {
         let mut buf = [0u8; 4];
         c.encode_utf8(&mut buf);
         present[buf[0] as usize] = true;
     }
-    for b in range(0usize, 256) {
+    for b in 0usize..256 {
         assert!(is_id_end_byte(b as u8) == present[b],
                 "is_id_end_byte({}): expected {}, get {}",
                 b, is_id_end_byte(b as u8), present[b]);
