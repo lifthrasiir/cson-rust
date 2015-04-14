@@ -20,7 +20,7 @@
 #![crate_name = "cson"]
 #![crate_type = "lib"]
 
-#![feature(core, old_io, unicode)] // lib stability features as per RFC #507
+#![feature(core, unicode)] // lib stability features as per RFC #507
 
 extern crate rustc_serialize as serialize;
 
