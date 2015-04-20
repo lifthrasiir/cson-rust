@@ -1,17 +1,21 @@
 // This is a part of CSON-rust.
 // Written by Kang Seonghoon. See README.md for details.
 
-use std::{char, str, fmt};
-use std::borrow::{Cow, IntoCow};
-use std::old_io::{BufReader, IoError, IoResult, EndOfFile};
+use std::{str, fmt};
+use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::io;
+use std::io::{BufRead, BufReader};
 use super::repr;
 use super::repr::Key;
+use super::util;
 
-#[derive(PartialEq, Debug)]
+#[cfg(test)] use std::char;
+
+#[derive(Debug)]
 pub struct ReaderError {
     pub cause: Cow<'static, str>,
-    pub ioerr: Option<IoError>,
+    pub ioerr: Option<io::Error>,
 }
 
 impl fmt::Display for ReaderError {
@@ -20,6 +24,12 @@ impl fmt::Display for ReaderError {
             Some(ref ioerr) => write!(f, "{} ({})", self.cause, *ioerr),
             None => write!(f, "{}", self.cause),
         }
+    }
+}
+
+impl From<io::Error> for ReaderError {
+    fn from(err: io::Error) -> ReaderError {
+        ReaderError { cause: "I/O error".into(), ioerr: Some(err) }
     }
 }
 
@@ -75,13 +85,13 @@ fn is_id_start_byte(b: u8) -> bool {
 #[test]
 fn test_is_id_start() {
     let mut present = [false; 256];
-    for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_start(c)) {
+    for c in (0u32..0x110000).filter_map(char::from_u32).filter(|&c| is_id_start(c)) {
         assert!(is_id_end(c), "is_id_end('{}' /*{:x}*/) is false", c, c as u32);
         let mut buf = [0u8; 4];
-        c.encode_utf8(&mut buf);
+        util::char::encode_utf8_raw(c as u32, &mut buf);
         present[buf[0] as usize] = true;
     }
-    for b in range(0usize, 256) {
+    for b in 0usize..256 {
         assert!(is_id_start_byte(b as u8) == present[b],
                 "is_id_start_byte({}): expected {}, get {}",
                 b, is_id_start_byte(b as u8), present[b]);
@@ -139,38 +149,30 @@ fn is_id_end_byte(b: u8) -> bool {
 #[test]
 fn test_is_id_end() {
     let mut present = [false; 256];
-    for c in range(0u32, 0x110000).filter_map(char::from_u32).filter(|&c| is_id_end(c)) {
+    for c in (0u32..0x110000).filter_map(char::from_u32).filter(|&c| is_id_end(c)) {
         let mut buf = [0u8; 4];
-        c.encode_utf8(&mut buf);
+        util::char::encode_utf8_raw(c as u32, &mut buf);
         present[buf[0] as usize] = true;
     }
-    for b in range(0usize, 256) {
+    for b in 0usize..256 {
         assert!(is_id_end_byte(b as u8) == present[b],
                 "is_id_end_byte({}): expected {}, get {}",
                 b, is_id_end_byte(b as u8), present[b]);
     }
 }
 
-fn into_reader_result<T>(res: IoResult<T>) -> ReaderResult<Option<T>> {
-    match res {
-        Ok(v) => Ok(Some(v)),
-        Err(ref err) if err.kind == EndOfFile => Ok(None),
-        Err(err) => Err(ReaderError { cause: "I/O error".into_cow(), ioerr: Some(err) })
-    }
-}
-
-fn reader_err<T, Cause: IntoCow<'static, str>>(cause: Cause) -> ReaderResult<T> {
-    Err(ReaderError { cause: cause.into_cow(), ioerr: None })
+fn reader_err<T, Cause: Into<Cow<'static, str>>>(cause: Cause) -> ReaderResult<T> {
+    Err(ReaderError { cause: cause.into(), ioerr: None })
 }
 
 struct Newline;
 
 pub struct Reader<'a> {
-    buf: &'a mut (Buffer + 'a),
+    buf: &'a mut (BufRead + 'a),
 }
 
 impl<'a> Reader<'a> {
-    pub fn new<T: Buffer>(buf: &'a mut T) -> Reader<'a> {
+    pub fn new<T: BufRead>(buf: &'a mut T) -> Reader<'a> {
         Reader { buf: buf }
     }
 
@@ -198,32 +200,20 @@ impl<'a> Reader<'a> {
     }
 
     fn eof(&mut self) -> ReaderResult<()> {
-        loop {
-            match try!(into_reader_result(self.buf.fill_buf())) {
-                Some(buf) => {
-                    if !buf.is_empty() {
-                        return reader_err("expected end of file");
-                    }
-                }
-                None => {
-                    return Ok(());
-                }
-            }
+        let buf = try!(self.buf.fill_buf());
+        if !buf.is_empty() {
+            reader_err("expected end of file")
+        } else {
+            Ok(())
         }
     }
 
     fn peek(&mut self) -> ReaderResult<Option<u8>> {
-        loop {
-            match try!(into_reader_result(self.buf.fill_buf())) {
-                Some(buf) => {
-                    if !buf.is_empty() {
-                        return Ok(Some(buf[0]));
-                    }
-                }
-                None => {
-                    return Ok(None);
-                }
-            }
+        let buf = try!(self.buf.fill_buf());
+        if !buf.is_empty() {
+            Ok(Some(buf[0]))
+        } else {
+            Ok(None)
         }
     }
 
@@ -232,19 +222,26 @@ impl<'a> Reader<'a> {
         assert!(token.len() <= MAX_TOKEN_LEN);
         let mut scratch = [0u8; MAX_TOKEN_LEN];
         let tokenbuf = &mut scratch[..token.len()];
-        try!(into_reader_result(self.buf.read_at_least(token.len(), tokenbuf)));
-        if tokenbuf == token { Ok(Some(())) } else { Ok(None) }
+        match try!(util::io::read_at_least(&mut self.buf, token.len(), tokenbuf)) {
+            util::io::ReadBytes::Enough(_) if tokenbuf == token => Ok(Some(())),
+            _ => Ok(None),
+        }
     }
 
     fn loop_with_buffer<F>(&mut self, mut callback: F) -> ReaderResult<bool>
             where F: FnMut(&[u8]) -> Option<usize> {
         let mut used;
+        let mut zeroes = 0;
         loop {
             {
-                let buf = match try!(into_reader_result(self.buf.fill_buf())) {
-                    Some(buf) => buf,
-                    None => { return Ok(false); }
-                };
+                let buf = try!(self.buf.fill_buf());
+                if buf.len() <= 0 {
+                    zeroes += 1;
+                    if zeroes >= util::io::NO_PROGRESS_LIMIT {
+                        return Ok(false);
+                    }
+                    continue;
+                }
 
                 match callback(buf) {
                     Some(used_) => { used = used_; break; }
@@ -425,7 +422,7 @@ impl<'a> Reader<'a> {
     /// end-object      = ws %x7D ws    ; } right curly bracket
     /// ~~~~
     fn object_no_peek(&mut self) -> ReaderResult<repr::AtomObject<'static>> {
-        assert_eq!(self.peek(), Ok(Some(b'{')));
+        assert_eq!(self.peek().unwrap(), Some(b'{'));
 
         self.buf.consume(1);
         try!(self.skip_ws());
@@ -500,7 +497,7 @@ impl<'a> Reader<'a> {
     fn name_opt(&mut self) -> ReaderResult<Option<Cow<'static, str>>> {
         match try!(self.peek()) {
             Some(quote @ b'"') | Some(quote @ b'\'') =>
-                self.string_no_peek(quote).map(|s| Some(s.into_cow())),
+                self.string_no_peek(quote).map(|s| Some(s.into())),
             Some(b) if is_id_start_byte(b) => self.bare_string_no_peek().map(Some),
             _ => Ok(None),
         }
@@ -515,7 +512,7 @@ impl<'a> Reader<'a> {
     /// end-array       = ws %x5D ws    ; ] right square bracket
     /// ~~~~
     fn array_no_peek(&mut self) -> ReaderResult<repr::AtomArray<'static>> {
-        assert_eq!(self.peek(), Ok(Some(b'[')));
+        assert_eq!(self.peek().unwrap(), Some(b'['));
 
         self.buf.consume(1);
         try!(self.skip_ws());
@@ -581,7 +578,7 @@ impl<'a> Reader<'a> {
     /// zero = %x30                     ; 0
     /// ~~~~
     fn number_no_peek(&mut self, initial: u8) -> ReaderResult<repr::Atom<'static>> {
-        assert_eq!(self.peek(), Ok(Some(initial)));
+        assert_eq!(self.peek().unwrap(), Some(initial));
 
         self.buf.consume(1);
 
@@ -726,7 +723,7 @@ impl<'a> Reader<'a> {
                 // this wouldn't affect the validness of other raw `bytes` as UTF-8 ensures that
                 // no valid sequence can made into invalid one or vice versa.
                 let mut charbuf = [0u8; 4];
-                let charbuflen = char::from_u32(ch).unwrap().encode_utf8(&mut charbuf).unwrap();
+                let charbuflen = util::char::encode_utf8_raw(ch, &mut charbuf).unwrap();
                 bytes.extend(charbuf[..charbuflen].iter().map(|&b| b));
             } else {
                 break;
@@ -734,7 +731,7 @@ impl<'a> Reader<'a> {
         }
 
         match String::from_utf8(bytes) {
-            Ok(s) => Ok(s.into_cow()),
+            Ok(s) => Ok(s.into()),
             Err(_) => reader_err("invalid UTF-8 sequence in a quoted string"),
         }
     }
@@ -759,7 +756,7 @@ impl<'a> Reader<'a> {
     /// Returns an `u16` instead of a `char` since it may return an incomplete surrogate.
     /// The caller is expected to deal with such cases.
     fn escaped_minus_escape(&mut self) -> ReaderResult<u16> {
-        match try!(into_reader_result(self.buf.read_byte())) {
+        match try!(util::io::read_byte(&mut self.buf)) {
             Some(b'\'') => Ok(0x27),
             Some(b'"') => Ok(0x22),
             Some(b'\\') => Ok(0x5c),
@@ -771,7 +768,7 @@ impl<'a> Reader<'a> {
             Some(b't') => Ok(0x09),
             Some(b'u') => {
                 let mut read_hex_digit = || {
-                    match try!(into_reader_result(self.buf.read_byte())) {
+                    match try!(util::io::read_byte(&mut self.buf)) {
                         Some(b @ b'0'...b'9') => Ok((b - b'0') as u16 + 0),
                         Some(b @ b'a'...b'f') => Ok((b - b'a') as u16 + 10),
                         Some(b @ b'A'...b'F') => Ok((b - b'A') as u16 + 10),
@@ -798,13 +795,13 @@ impl<'a> Reader<'a> {
     /// pipe = %x7C                     ; |
     /// ~~~~
     fn verbatim_string_no_peek(&mut self) -> ReaderResult<Vec<Cow<'static, str>>> {
-        assert_eq!(self.peek(), Ok(Some(b'|')));
+        assert_eq!(self.peek().unwrap(), Some(b'|'));
 
         let mut frags = Vec::new();
         loop {
             self.buf.consume(1);
             match String::from_utf8(try!(self.non_newline_chars())) {
-                Ok(bytes) => { frags.push(bytes.into_cow()); }
+                Ok(bytes) => { frags.push(bytes.into()); }
                 Err(_) => { return reader_err("invalid UTF-8 sequence in a verbatim string"); }
             }
             self.buf.consume(1); // either 0x0a or 0x0d
@@ -829,20 +826,20 @@ impl<'a> Reader<'a> {
         assert!(self.peek().ok().and_then(|c| c).map_or(false, is_id_start_byte));
 
         let mut s = String::new();
-        match try!(into_reader_result(self.buf.read_char())) {
+        match try!(util::io::read_char(&mut self.buf)) {
             Some(ch) if is_id_start(ch) => { s.push(ch); }
             Some(_) => { return reader_err("expected a bare string, got an invalid character"); }
             None    => { return reader_err("expected a bare string, got the end of file"); }
         };
         while try!(self.peek()).map_or(false, is_id_end_byte) {
-            match try!(into_reader_result(self.buf.read_char())) {
+            match try!(util::io::read_char(&mut self.buf)) {
                 Some(ch) if is_id_end(ch) => { s.push(ch); }
                 Some(_) => { return reader_err("expected a bare string, got an invalid \
                                                 character"); }
                 None    => { return reader_err("expected a bare string, got the end of file"); }
             };
         }
-        Ok(s.into_cow())
+        Ok(s.into())
     }
 }
 
@@ -855,8 +852,8 @@ mod tests {
     macro_rules! valid {
         ($buf:expr, $repr:expr) => ({
             let parsed = Reader::parse_value_from_buf($buf.as_bytes());
-            let expected = Ok($repr);
-            assert_eq!(parsed, expected);
+            let expected = $repr;
+            assert_eq!(parsed.unwrap(), expected);
         })
     }
 

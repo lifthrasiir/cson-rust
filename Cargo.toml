@@ -14,4 +14,4 @@ license = "CC0-1.0"
 name = "cson"
 
 [dependencies]
-rustc-serialize = "0.2.15"
+rustc-serialize = "0.3.12"
